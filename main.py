@@ -1,4 +1,8 @@
+from src.pos.pos import PointOfSale
+
+
 def main():
+    pos = PointOfSale()
     print("Hello from tysd-bbc-distributed-pos!")
 
 
