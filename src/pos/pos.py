@@ -1,31 +1,22 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum
-from typing import Dict, Optional
+from typing import Optional
+
+from pos.consensus import LeaderElection
+from pos.peers import PeerManager
+from pos.role import Role
+from pos.transactions import TransactionManager
 
 from .deposit import Deposit, Product
-
-
-class Role(Enum):
-    LEADER = "leader"
-    FOLLOWER = "follower"
-    CANDIDATE = "candidate"
-    DOWN = "down"
-
-
-@dataclass
-class Peer:
-    node: "PointOfSale"
-    endpoint: Optional[str] = None
 
 
 class PointOfSale:
     def __init__(self, node_id: str, deposit: Optional[Deposit] = None):
         self.node_id: str = node_id
-        self.deposit = deposit or Deposit()
         self.role = Role.FOLLOWER
-        self.peers: Dict[str, Peer] = {}
+        self.peers = PeerManager()
+        self.transactions = TransactionManager(node_id, deposit)
+        self.consensus = LeaderElection()
 
     def set_role(self, new_role: Role):
         self.role = new_role
@@ -38,11 +29,11 @@ class PointOfSale:
         """Connect to a new peer node."""
         if peer.node_id == self.node_id:
             return
-        self.peers[peer.node_id] = Peer(node=peer, endpoint=endpoint)
+        self.peers.add_peer(peer.node_id, endpoint)
 
     def remove_peer(self, peer_id: str) -> None:
         """Disconnect from a peer node."""
-        self.peers.pop(peer_id, None)
+        self.peers.remove_peer(peer_id)
 
     def broadcast_message(self, message: str) -> None:
         """Send a message to all connected peers."""
