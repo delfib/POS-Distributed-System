@@ -43,11 +43,19 @@ class PointOfSale:
         msg_type = message.get("type")
         try:
             if msg_type == "BUY_PRODUCT":
-                
+                return self.handle_buy_product(message)
             else:
                 print("Type of message unrecognized")
         except Exception as e:
             raise Exception(f"Error handling message: {e}")
+
+    def handle_buy_product(self, message: str):
+        product_id = message["product_id"]
+        quantity = message["quantity"]
+
+        print(f"Client is trying to buy {product_id} for amount: {quantity}")
+        result = self.transactions.sell_product(product_id, quantity)
+        return result
 
     def start(self):
         print(f"[*] Listening on {self.host}:{self.port}")
