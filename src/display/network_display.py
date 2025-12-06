@@ -1,5 +1,3 @@
-
-
 class Network:
     def __init__(self):
         self.nodes = []
@@ -9,6 +7,3 @@ class Network:
 
     def remove_node(self, node):
         self.nodes.remove(node)
-
-    
-    
