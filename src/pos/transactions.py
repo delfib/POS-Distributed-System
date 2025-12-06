@@ -1,10 +1,13 @@
 from typing import Optional
 
-from pos.deposit import Deposit
-from pos.peers import PeerManager
+from src.pos.deposit import Deposit
+from src.pos.peers import PeerManager
+
 
 class TransactionManager:
-    def __init__(self, node_id: str, peerManager: PeerManager, deposit: Optional[Deposit] = None):
+    def __init__(
+        self, node_id: str, peerManager: PeerManager, deposit: Optional[Deposit] = None
+    ):
         self.deposit = deposit or Deposit()
         self.peerManager = peerManager
         self.node_id = node_id
@@ -21,6 +24,7 @@ class TransactionManager:
         self.peerManager.broadcast(message, product_id)
 
         # how does this node know the item was actually sold by another node?
-        
+        # should i receive a confirmation that the product was actually sold?
+
         print(f"POS {self.node_id} lacks sufficient stock to complete sale")
         return False

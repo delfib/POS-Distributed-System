@@ -1,45 +1,11 @@
-from src.pos.client import Client
-from src.pos.deposit import Deposit
-from src.pos.pos import PointOfSale, Role
-
-
-def build_peer_topology():
-    pos1_deposit = Deposit("src/db/db1.json")
-    pos1 = PointOfSale("POS1", deposit=pos1_deposit)
-
-    # POS2 has no local apples to start with.
-    pos2_deposit = Deposit("src/db/db2.json")
-    pos2 = PointOfSale("POS2", deposit=pos2_deposit)
-
-    pos3_deposit = Deposit("src/db/db3.json")
-    pos3 = PointOfSale("POS3", deposit=pos3_deposit)
-
-    pos1.add_peer(pos2, "localhost:8001")
-    pos1.add_peer(pos3, "localhost:8002")
-    pos2.add_peer(pos1, "localhost:8000")
-    pos2.add_peer(pos3, "localhost:8002")
-    pos3.add_peer(pos1, "localhost:8000")
-    pos3.add_peer(pos2, "localhost:8001")
-    return pos1, pos2, pos3
+from src.argsparser.parser import ArgsParser
+from src.pos.pos import PointOfSale
 
 
 def main():
-    pos1, pos2, pos3 = build_peer_topology()
-    pos1.set_role(Role.LEADER)
-
-    client = Client(pos2)
-
-    product = client.get_item(1)
-    print(f"[Before leader update] Client sees {product.name} at ${product.price}")
-
-    pos1.update_price(1, 0.55)
-    product = client.get_item(1)
-    print(f"[After leader update] Client sees {product.name} at ${product.price}")
-
-    # This sale will be fulfilled by POS3 because POS2 has 0 apples.
-    client.buy_item(product_id=1, quantity=4)
-
-    pos1.broadcast_message("Inventory updated across the network.")
+    args = ArgsParser.build_parser()
+    pos = PointOfSale(node_id=args.node_id, host=args.host, port=args.port)
+    pos.start()
 
 
 if __name__ == "__main__":
