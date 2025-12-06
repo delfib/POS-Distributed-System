@@ -1,28 +1,18 @@
 from src.pos.client import Client
-from src.pos.deposit import Deposit, Product
+from src.pos.deposit import Deposit
 from src.pos.pos import PointOfSale, Role
 
 
 def build_peer_topology():
-    pos1_deposit = Deposit(
-        {
-            1: Product(1, "Apple", 0.55, 0),
-            2: Product(2, "Banana", 0.3, 10),
-            3: Product(3, "Orange", 0.7, 8),
-        }
-    )
+    pos1_deposit = Deposit("src/db/db1.json")
     pos1 = PointOfSale("POS1", deposit=pos1_deposit)
 
     # POS2 has no local apples to start with.
-    pos2_deposit = Deposit(
-        {
-            1: Product(1, "Apple", 0.5, 0),
-            2: Product(2, "Banana", 0.3, 10),
-            3: Product(3, "Orange", 0.7, 8),
-        }
-    )
+    pos2_deposit = Deposit("src/db/db2.json")
     pos2 = PointOfSale("POS2", deposit=pos2_deposit)
-    pos3 = PointOfSale("POS3")
+
+    pos3_deposit = Deposit("src/db/db3.json")
+    pos3 = PointOfSale("POS3", deposit=pos3_deposit)
 
     pos1.add_peer(pos2, "localhost:8001")
     pos1.add_peer(pos3, "localhost:8002")

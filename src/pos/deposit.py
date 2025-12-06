@@ -1,6 +1,7 @@
+import json
 import threading
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional
+from typing import Iterable, Optional
 
 
 @dataclass
@@ -11,31 +12,15 @@ class Product:
     quantity: int = 0
 
 
-DEFAULT_PRODUCTS: Dict[int, Product] = {
-    1: Product(1, "Apple", 0.5, 10),
-    2: Product(2, "Banana", 0.3, 15),
-    3: Product(3, "Orange", 0.7, 12),
-}
-
-
-def _clone_products(products: Dict[int, Product]) -> Dict[int, Product]:
-    """Create in-memory copies so each deposit is isolated."""
-    return {
-        product_id: Product(
-            id=product.id,
-            name=product.name,
-            price=product.price,
-            quantity=product.quantity,
-        )
-        for product_id, product in products.items()
-    }
-
-
 class Deposit:
-    def __init__(self, products: Optional[Dict[int, Product]] = None):
-        catalog = products or DEFAULT_PRODUCTS
-        self._items: Dict[int, Product] = _clone_products(catalog)
+    def __init__(self, database_path: str = None):
+        self._items = self._load_products(database_path) if database_path else {}
         self._lock = threading.Lock()
+
+    def _load_products(self, database_path: str):
+        with open(database_path) as f:
+            data = json.load(f)
+        return {int(pid): Product(**info) for pid, info in data.items()}
 
     def list_products(self) -> Iterable[Product]:
         with self._lock:
