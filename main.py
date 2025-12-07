@@ -7,7 +7,9 @@ from src.server import Server
 def main():
     args = ArgsParser.build_parser()
     server = Server()
-    app = server.create_app(node_id=args.node_id, host=args.host, port=args.port)
+    app = server.create_app(
+        node_id=args.node_id, host=args.host, port=args.port, peers=peers
+    )
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
 
