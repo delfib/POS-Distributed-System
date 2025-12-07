@@ -24,10 +24,14 @@ class PointOfSale:
         self.role = Role.FOLLOWER
         self.host = host
         self.port = port
-        self.peers = PeerManager(host, port, {})
-        self.deposit = deposit or Deposit()
-        self.transactions = TransactionManager(node_id, self.peers, self.deposit)
-        self.consensus = LeaderElection()
+        # self.peers = PeerManager(host, port, {})
+        self.peer_manager = PeerManager(host, port)
+        self.transactions = TransactionManager(node_id, self.peer_manager, deposit)
+        self.consensus = LeaderElection(
+            node_id=node_id,
+            peers=self.peer_manager,
+            on_role_change=self.set_role,
+        )
         self.socket: Optional[socket.socket] = None
 
     def set_role(self, new_role: Role):
@@ -38,6 +42,8 @@ class PointOfSale:
         return self.role != Role.DOWN
 
     def start(self):
+        # Start election/heartbeat timers before accepting client connections.
+        self.consensus.start()
         print(f"[*] Listening on {self.host}:{self.port}")
         self.socket = self._create_server_socket(self.host, self.port)
         try:
@@ -60,7 +66,11 @@ class PointOfSale:
             if msg_type == "BUY_PRODUCT":
                 return self._handle_buy_product(message)
             elif msg_type == "UPDATE_PRICE":
-                return self.handle_price_update(message)
+                return self._handle_price_update(message)
+            elif msg_type == "QUERY_PRODUCT":
+                return self._handle_query_product(message)
+            elif msg_type == "FOLLOWER_PRICE_UPDATE":
+                return self._handle_follower_price_update(message)
             else:
                 print("Type of message unrecognized")
         except Exception as e:
@@ -93,24 +103,24 @@ class PointOfSale:
 
         return {"ok": False, "error": "unknown_message_type"}
 
-    def handle_price_update(self, message: dict):
+    def _handle_price_update(self, message: dict):
         # Only leader can update prices
         if self.role != Role.LEADER:
-            return {"ok": False, "error": "not_leader"}
+            return {"status": False, "error": "not_leader"}
 
         pid = message["product_id"]
         new_price = message["new_price"]
 
         # Update leader’s own price
-        ok = self.deposit.change_price(pid, new_price)
+        status = self.transactions.change_product_price(pid, new_price)
 
-        if not ok:
-            return {"ok": False, "error": "product_not_found"}
+        if not status["status"]:
+            return status["error"]
 
         # Broadcast update to followers
         update_msg = json.dumps(
             {
-                "type": "PRICE_UPDATE",
+                "type": "FOLLOWER_PRICE_UPDATE",
                 "product_id": pid,
                 "new_price": new_price,
                 "sender": self.node_id,
@@ -119,9 +129,46 @@ class PointOfSale:
 
         print(f"[LEADER {self.node_id}] Broadcasting new price for product {pid}")
 
-        self.peers.broadcast(update_msg)
+        self.peer_manager.broadcast(update_msg)
 
-        return {"ok": True}
+        return {"status": True}
+
+    def _handle_follower_price_update(self, message: dict):
+        pid = message["product_id"]
+        new_price = message["new_price"]
+
+        print(f"[FOLLOWER {self.node_id}] Received price update for product {pid}")
+
+        status = self.transactions.change_product_price(pid, new_price)
+
+        return {"status": status}
+
+    def _handle_buy_product(self, message: str):
+        product_id = message["product_id"]
+        quantity = message["quantity"]
+
+        print(f"Client is trying to buy {product_id} for amount: {quantity}")
+
+        if self.transactions.sell_product(product_id, quantity):
+            print(f"Sold {quantity} of product {product_id} locally")
+            return
+
+        request = {
+            "type": "SELL_REQUEST",
+            "product_id": product_id,
+            "quantity": quantity,
+            "sender": self.node_id,
+        }
+
+        return self.peer_manager.broadcast(json.dumps(request))
+
+    def _handle_query_product(self, message: str):
+        product_id = message["product_id"]
+
+        print(f"Client is trying to query {product_id}")
+        result = self.deposit.get_product(product_id)
+        """ the result needs to be sent to the client somehow """
+        return result
 
     def _create_server_socket(self, host: str, port: int) -> socket.socket:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -129,11 +176,3 @@ class PointOfSale:
         sock.bind((host, port))
         sock.listen(5)
         return sock
-
-    def _handle_buy_product(self, message: str):
-        product_id = message["product_id"]
-        quantity = message["quantity"]
-
-        print(f"Client is trying to buy {product_id} for amount: {quantity}")
-        result = self.transactions.sell_product(product_id, quantity)
-        return result

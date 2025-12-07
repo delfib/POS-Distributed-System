@@ -3,14 +3,14 @@ from typing import Dict
 
 
 class PeerManager:
-    def __init__(self, addres: str, port: int, peers: Dict[str, int]) -> None:
+    def __init__(self, address: str, port: int, peers: Dict[str, int]) -> None:
         self.port: int = port
-        self.addres: str = addres
+        self.address: str = address
         self.peers: Dict[str, int] = peers
         # self.message_queue = []
 
-    def add_peer(self, addres: str, port: int) -> None:
-        self.peers[addres] = port
+    def add_peer(self, address: str, port: int) -> None:
+        self.peers[address] = port
 
     def remove_peer(self, address: str) -> None:
         self.peers.pop(address, None)
@@ -18,14 +18,13 @@ class PeerManager:
     # Broadcast a message to all peers
     def broadcast(self, msg_json: str) -> None:
         for address, port in self.peers.items():
-            data = self.send(message, product_id, address, port)
-            return data
+            self.send(msg_json, address, port)
 
     #def send(self, message: str, product_id: str, address: str, port: int) -> None:
-    def send(self, msg_jsom: str) -> None:
+    def send(self, msg_json: str, address:str, port:int) -> None:
         # Implement sending logic here socket communication, etc.?
 
-        msg = f"Product ID: {product_id}\nMessage: {message}"
+        msg = msg_json
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((address, port))
@@ -34,7 +33,7 @@ class PeerManager:
             return data.decode("utf-8")
 
     #def receive(self, message: str, product_id: str, address: str, port: int) -> None:
-    def receive(self, msg_json: str) -> None:
+    def receive(self, msg_json: str, address: str, port: int) -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind((address, port))
             s.listen()
@@ -46,14 +45,15 @@ class PeerManager:
                     if not data:
                         break
                     print(
-                        f"Received message for product {product_id}: {data.decode('utf-8')}"
+                        f"Received message: {data.decode('utf-8')} from {addr}"
                     )
-                    msg = self.response(message, product_id, address, port)
+                    msg = self.response(msg_json)
                     conn.sendall(msg.encode("utf-8"))
 
     #def response(self, message: str, product_id: str, address: str, port: int) -> None:
-    def response(self, msg_json: str) -> None:
-        return "Acknowledged"
+    #def response(self, msg_json: str) -> None:
+    #    self.
+    #    return "Acknowledged"
 
 
 #    def response(self, message: str, product_id: str, address: str, port: int) -> None:
