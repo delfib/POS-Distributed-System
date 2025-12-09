@@ -10,11 +10,11 @@ class Product:
     name: str
     price: float
     quantity: int = 0
-    
+
 
 class Deposit:
     def __init__(self, database_path: str):
-        self.database_path = database_path 
+        self.database_path = database_path
         self._items = self._load_products(database_path) if database_path else {}
         self._lock = threading.Lock()
 
@@ -72,6 +72,6 @@ class Deposit:
             return True
 
     def _save_products(self):
-        with open(self.database_path, 'w') as f:
+        with open(self.database_path, "w") as f:
             data = {pid: product.__dict__ for pid, product in self._items.items()}
             json.dump(data, f, indent=4)
