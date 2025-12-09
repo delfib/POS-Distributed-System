@@ -1,7 +1,19 @@
 # tysd-bbc-distributed-pos
 
-## Commands to run this project
+## Setup
 
 ```sh
-uv run main.py
+./pos-toy/scripts/setup.sh
+```
+
+### Run the servers in Terminal 1
+
+```bash
+python3 pos.py
+```
+
+### Run the client in Terminal 2
+
+```bash
+python3 client.py
 ```
