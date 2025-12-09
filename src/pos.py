@@ -1,11 +1,19 @@
+import random
+import threading
+import time
+
 import grpc
 
 import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from deposit import Deposit
 from proto.pos_service_pb2 import (
+    AppendEntriesRequest,
+    AppendEntriesResponse,
     BuyProductRequest,
     BuyProductResponse,
     GetProductPriceResponse,
+    RequestVoteRequest,
+    RequestVoteResponse,
     UpdateProductPriceRequest,
     UpdateProductPriceResponse,
 )
@@ -28,6 +36,31 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         self.peers = peers  # List of peers to notify
         self.host = host  # Host where the node is running (IP or hostname)
         self.port = port  # Port where the node is running
+
+        # Raft state
+        self.state_lock = threading.Lock()
+        self.current_term = 0
+        self.voted_for = None
+        self.leader_id = None
+        self.heartbeat_interval = 1.0
+        self.election_timeout_range = (2.0, 4.0)
+        self._election_deadline = time.monotonic()
+        self._stop_event = threading.Event()
+        self._election_thread = threading.Thread(
+            target=self._run_election_timer, daemon=True
+        )
+        self._heartbeat_thread = threading.Thread(
+            target=self._run_heartbeat, daemon=True
+        )
+
+    def start(self):
+        """Start background Raft tasks."""
+        with self.state_lock:
+            self._reset_election_deadline()
+        if not self._election_thread.is_alive():
+            self._election_thread.start()
+        if not self._heartbeat_thread.is_alive():
+            self._heartbeat_thread.start()
 
     #####################################################################################
     # API Client Methods
@@ -112,8 +145,13 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
     def UpdateProductPrice(self, request, context):
         """RPC to update product price (only the leader can do this)"""
         if self.role != Role.LEADER:
+            leader_hint = (
+                f"Current leader: {self.leader_id}"
+                if self.leader_id
+                else "Leader unknown"
+            )
             return UpdateProductPriceResponse(
-                message="Not authorized: Only the leader can update prices."
+                message=f"Not authorized: Only the leader can update prices. {leader_hint}"
             )
 
         # The leader updates the price
@@ -131,6 +169,34 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
             return UpdateProductPriceResponse(
                 success=False, message="Product not found"
             )
+
+    #####################################################################################
+    # Raft RPCs
+    #####################################################################################
+
+    def RequestVote(self, request, context):
+        with self.state_lock:
+            if request.term < self.current_term:
+                return RequestVoteResponse(term=self.current_term, vote_granted=False)
+
+            if request.term > self.current_term:
+                self._become_follower(request.term)
+
+            can_vote = self.voted_for in (None, request.candidate_id)
+            if can_vote:
+                self.voted_for = request.candidate_id
+                self._reset_election_deadline()
+            return RequestVoteResponse(term=self.current_term, vote_granted=can_vote)
+
+    def AppendEntries(self, request, context):
+        with self.state_lock:
+            if request.term < self.current_term:
+                return AppendEntriesResponse(term=self.current_term, success=False)
+            if request.term >= self.current_term:
+                if request.term > self.current_term:
+                    self.current_term = request.term
+                self._become_follower(request.term, request.leader_id)
+            return AppendEntriesResponse(term=self.current_term, success=True)
 
     def notify_peers(self, product_id, new_price):
         """Send a gRPC request to all peers to update the product price"""
@@ -165,4 +231,120 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         else:
             return UpdateProductPriceResponse(
                 success=False, message="Product not found"
+            )
+
+    #####################################################################################
+    # Raft helpers
+    #####################################################################################
+
+    def _reset_election_deadline(self):
+        self._election_deadline = time.monotonic() + random.uniform(
+            *self.election_timeout_range
+        )
+
+    def _become_follower(self, term: int, leader_id: str | None = None):
+        self.role = Role.FOLLOWER
+        self.current_term = term
+        self.voted_for = None
+        self.leader_id = leader_id
+        self._reset_election_deadline()
+
+    def _quorum_size(self) -> int:
+        return (len(self.peers) + 1) // 2 + 1
+
+    def _run_election_timer(self):
+        while not self._stop_event.is_set():
+            time.sleep(0.1)
+            with self.state_lock:
+                if self.role == Role.LEADER:
+                    self._reset_election_deadline()
+                    continue
+                should_start = time.monotonic() >= self._election_deadline
+            if should_start:
+                self._start_election()
+
+    def _start_election(self):
+        with self.state_lock:
+            self.current_term += 1
+            term = self.current_term
+            self.role = Role.CANDIDATE
+            self.voted_for = self.node_id
+            self.leader_id = None
+            self._reset_election_deadline()
+            print(f"Node {self.node_id} starting election for term {term}")
+
+        votes = 1  # vote for self
+        for peer in self.peers:
+            response = self._request_vote_from_peer(peer, term)
+            if response is None:
+                continue
+            with self.state_lock:
+                if response.term > self.current_term:
+                    print(
+                        f"Node {self.node_id} found higher term {response.term} from peer; stepping down."
+                    )
+                    self._become_follower(response.term)
+                    return
+                still_candidate = (
+                    self.role == Role.CANDIDATE and term == self.current_term
+                )
+            if not still_candidate:
+                return
+            if response.vote_granted:
+                votes += 1
+
+        with self.state_lock:
+            if self.role == Role.CANDIDATE and votes >= self._quorum_size():
+                self.role = Role.LEADER
+                self.leader_id = self.node_id
+                print(
+                    f"Node {self.node_id} became leader for term {term} with {votes} votes."
+                )
+            else:
+                print(
+                    f"Node {self.node_id} failed to win election for term {term} ({votes} votes)."
+                )
+
+    def _request_vote_from_peer(self, peer, term: int):
+        host, port = peer
+        try:
+            channel = grpc.insecure_channel(f"{host}:{port}")
+            stub = pos_service_pb2_grpc.POSStub(channel)
+            request = RequestVoteRequest(term=term, candidate_id=self.node_id)
+            return stub.RequestVote(request, timeout=1.0)
+        except Exception as exc:
+            print(
+                f"Node {self.node_id} failed to request vote from {host}:{port}: {exc}"
+            )
+            return None
+
+    def _run_heartbeat(self):
+        while not self._stop_event.is_set():
+            with self.state_lock:
+                is_leader = self.role == Role.LEADER
+                term = self.current_term
+            if not is_leader:
+                time.sleep(0.2)
+                continue
+
+            for peer in self.peers:
+                self._send_heartbeat_to_peer(peer, term)
+            time.sleep(self.heartbeat_interval)
+
+    def _send_heartbeat_to_peer(self, peer, term: int):
+        host, port = peer
+        try:
+            channel = grpc.insecure_channel(f"{host}:{port}")
+            stub = pos_service_pb2_grpc.POSStub(channel)
+            request = AppendEntriesRequest(term=term, leader_id=self.node_id)
+            response = stub.AppendEntries(request, timeout=1.0)
+            with self.state_lock:
+                if response.term > self.current_term:
+                    print(
+                        f"Node {self.node_id} discovered higher term {response.term} during heartbeat; stepping down."
+                    )
+                    self._become_follower(response.term)
+        except Exception as exc:
+            print(
+                f"Node {self.node_id} failed to send heartbeat to {host}:{port}: {exc}"
             )
