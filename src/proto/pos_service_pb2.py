@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17proto/pos_service.proto\x12\x03pos\",\n\x16GetProductPriceRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\"[\n\x17GetProductPriceResponse\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\r\n\x05price\x18\x03 \x01(\x02\x12\x0f\n\x07message\x18\x04 \x01(\t\"B\n\x19UpdateProductPriceRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x11\n\tnew_price\x18\x02 \x01(\x02\">\n\x1aUpdateProductPriceResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t2\x87\x02\n\x03POS\x12L\n\x0fGetProductPrice\x12\x1b.pos.GetProductPriceRequest\x1a\x1c.pos.GetProductPriceResponse\x12U\n\x12UpdateProductPrice\x12\x1e.pos.UpdateProductPriceRequest\x1a\x1f.pos.UpdateProductPriceResponse\x12[\n\x18NotifyPeersToUpdatePrice\x12\x1e.pos.UpdateProductPriceRequest\x1a\x1f.pos.UpdateProductPriceResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17proto/pos_service.proto\x12\x03pos\",\n\x16GetProductPriceRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\"[\n\x17GetProductPriceResponse\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\r\n\x05price\x18\x03 \x01(\x02\x12\x0f\n\x07message\x18\x04 \x01(\t\"B\n\x19UpdateProductPriceRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x11\n\tnew_price\x18\x02 \x01(\x02\">\n\x1aUpdateProductPriceResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"U\n\x11\x42uyProductRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x10\n\x08quantity\x18\x02 \x01(\x05\x12\x1a\n\x12node_id_requesting\x18\x03 \x01(\t\"K\n\x12\x42uyProductResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x13\n\x0btotal_price\x18\x03 \x01(\x02\x32\xc6\x02\n\x03POS\x12L\n\x0fGetProductPrice\x12\x1b.pos.GetProductPriceRequest\x1a\x1c.pos.GetProductPriceResponse\x12U\n\x12UpdateProductPrice\x12\x1e.pos.UpdateProductPriceRequest\x1a\x1f.pos.UpdateProductPriceResponse\x12[\n\x18NotifyPeersToUpdatePrice\x12\x1e.pos.UpdateProductPriceRequest\x1a\x1f.pos.UpdateProductPriceResponse\x12=\n\nBuyProduct\x12\x16.pos.BuyProductRequest\x1a\x17.pos.BuyProductResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,6 +39,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_UPDATEPRODUCTPRICEREQUEST']._serialized_end=237
   _globals['_UPDATEPRODUCTPRICERESPONSE']._serialized_start=239
   _globals['_UPDATEPRODUCTPRICERESPONSE']._serialized_end=301
-  _globals['_POS']._serialized_start=304
-  _globals['_POS']._serialized_end=567
+  _globals['_BUYPRODUCTREQUEST']._serialized_start=303
+  _globals['_BUYPRODUCTREQUEST']._serialized_end=388
+  _globals['_BUYPRODUCTRESPONSE']._serialized_start=390
+  _globals['_BUYPRODUCTRESPONSE']._serialized_end=465
+  _globals['_POS']._serialized_start=468
+  _globals['_POS']._serialized_end=794
 # @@protoc_insertion_point(module_scope)

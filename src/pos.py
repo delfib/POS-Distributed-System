@@ -1,15 +1,16 @@
-import time
-from concurrent import futures
-
 import grpc
+
 import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from deposit import Deposit
 from proto.pos_service_pb2 import (
+    BuyProductRequest,
+    BuyProductResponse,
     GetProductPriceResponse,
     UpdateProductPriceRequest,
     UpdateProductPriceResponse,
 )
 from role import Role
+
 
 class POSServicer(pos_service_pb2_grpc.POSServicer):
     def __init__(
@@ -27,6 +28,77 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         self.peers = peers  # List of peers to notify
         self.host = host  # Host where the node is running (IP or hostname)
         self.port = port  # Port where the node is running
+
+    #####################################################################################
+    # API Client Methods
+    #####################################################################################
+
+    def buy(self, product_id: int, quantity: int) -> bool:
+        try:
+            product_id_int = int(product_id)
+        except ValueError:
+            print(f"Invalid product id: {product_id}")
+            return False
+
+        print(
+            f"Node {self.node_id} attempting to buy product {product_id_int} with quantity {quantity}"
+        )
+        is_in_my_stock = self.deposit.sell_product(product_id_int, quantity)
+        if is_in_my_stock:
+            return True
+
+        # Ask peers
+        print(f"Product {product_id_int} not in stock locally. Asking peers...")
+        for peer in self.peers:
+            host, port = peer  # Unpack host and port from the tuple
+            try:
+                print(f"Contacting peer at {host}:{port} for product {product_id_int}")
+                # Abro una conexión con esa tienda
+                channel = grpc.insecure_channel(f"{host}:{port}")
+                print(f"Channel to {host}:{port} established.")
+                # Creo un teléfono para hacer llamadas a esa tienda
+                stub = pos_service_pb2_grpc.POSStub(channel)
+                print(f"Stub to {host}:{port} created.")
+                # Preparo la solicitud de compra
+                buy_request = BuyProductRequest(
+                    product_id=product_id_int,
+                    quantity=quantity,
+                    node_id_requesting=self.node_id,
+                )
+                print(f"Buy request for product {product_id_int} prepared.")
+                # Hago la llamada y espero la respuesta
+                response = stub.BuyProduct(buy_request)
+                print(
+                    f"Received response from peer {host}:{port}: success={response.success}, message={response.message}"
+                )
+                if response.success:
+                    print(response.message)
+                    print(
+                        f"Purchase of product {product_id_int} successful from peer {host}:{port}"
+                    )
+                    return True
+            except Exception as e:
+                print(f"Error contacting peer {host}:{port}: {str(e)}")
+
+    #####################################################################################
+    # RPC Methods Implementation
+    #####################################################################################
+
+    def BuyProduct(self, request, context):
+        """RPC to handle product purchase requests from clients or peers"""
+        is_in_my_stock = self.deposit.sell_product(request.product_id, request.quantity)
+        if is_in_my_stock:
+            print(
+                f"Product {request.product_id} sold {request.quantity} units. Peer: {request.node_id_requesting}"
+            )
+            return BuyProductResponse(
+                success=True, message="Purchase successful", total_price=100.0
+            )
+        else:
+            print(f"Product {request.product_id} not available for sale.")
+            return BuyProductResponse(
+                success=False, message="Product not available", total_price=-1.0
+            )
 
     def GetProductPrice(self, request, context):
         """RPC to get product price"""
@@ -94,58 +166,3 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
             return UpdateProductPriceResponse(
                 success=False, message="Product not found"
             )
-
-
-def serve():
-    # Initialize the deposit (database)
-    deposit1 = Deposit(database_path="db/db1.json")  # Leader's database
-    deposit2 = Deposit(database_path="db/db2.json")  # Follower 1's database
-    deposit3 = Deposit(database_path="db/db3.json")  # Follower 2's database
-
-    # Create POS nodes (hardcoded)
-    # Pass the peer list as tuples (host, port)
-    node_1 = POSServicer(
-        deposit1,
-        "POS1",
-        Role.LEADER,
-        [("localhost", 50052), ("localhost", 50053)],
-        "localhost",
-        50051,
-    )
-    node_2 = POSServicer(
-        deposit2, "POS2", Role.FOLLOWER, [("localhost", 50051)], "localhost", 50052
-    )
-    node_3 = POSServicer(
-        deposit3, "POS3", Role.FOLLOWER, [("localhost", 50051)], "localhost", 50053
-    )
-
-    # Start 3 servers, each on different ports
-    server1 = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    pos_service_pb2_grpc.add_POSServicer_to_server(node_1, server1)
-    server1.add_insecure_port("[::]:50051")  # Leader on port 50051
-    server1.start()
-    print("gRPC server started on port 50051 (Leader)")
-
-    server2 = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    pos_service_pb2_grpc.add_POSServicer_to_server(node_2, server2)
-    server2.add_insecure_port("[::]:50052")  # Follower 1 on port 50052
-    server2.start()
-    print("gRPC server started on port 50052 (Follower 1)")
-
-    server3 = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    pos_service_pb2_grpc.add_POSServicer_to_server(node_3, server3)
-    server3.add_insecure_port("[::]:50053")  # Follower 2 on port 50053
-    server3.start()
-    print("gRPC server started on port 50053 (Follower 2)")
-
-    try:
-        while True:
-            time.sleep(86400)  # Keep all servers running
-    except KeyboardInterrupt:
-        server1.stop(0)
-        server2.stop(0)
-        server3.stop(0)
-
-
-if __name__ == "__main__":
-    serve()

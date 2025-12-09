@@ -1,4 +1,5 @@
 import grpc
+
 import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from proto.pos_service_pb2 import GetProductPriceRequest, UpdateProductPriceRequest
 
@@ -23,7 +24,7 @@ def run():
     # After getting the current price, let's update the price if needed
     # Create a request to update the price of product 2
     # Only the leader will be able to update the price
-    new_price = 15000000000  # Set a new price for product 2
+    new_price = 5  # Set a new price for product 2
     update_request = UpdateProductPriceRequest(product_id=1, new_price=new_price)
 
     # Call the UpdateProductPrice method to update the price (this will only work if you're connecting to the leader)

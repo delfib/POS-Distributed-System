@@ -49,6 +49,11 @@ class POSStub(object):
                 request_serializer=proto_dot_pos__service__pb2.UpdateProductPriceRequest.SerializeToString,
                 response_deserializer=proto_dot_pos__service__pb2.UpdateProductPriceResponse.FromString,
                 _registered_method=True)
+        self.BuyProduct = channel.unary_unary(
+                '/pos.POS/BuyProduct',
+                request_serializer=proto_dot_pos__service__pb2.BuyProductRequest.SerializeToString,
+                response_deserializer=proto_dot_pos__service__pb2.BuyProductResponse.FromString,
+                _registered_method=True)
 
 
 class POSServicer(object):
@@ -72,6 +77,13 @@ class POSServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def BuyProduct(self, request, context):
+        """
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_POSServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -89,6 +101,11 @@ def add_POSServicer_to_server(servicer, server):
                     servicer.NotifyPeersToUpdatePrice,
                     request_deserializer=proto_dot_pos__service__pb2.UpdateProductPriceRequest.FromString,
                     response_serializer=proto_dot_pos__service__pb2.UpdateProductPriceResponse.SerializeToString,
+            ),
+            'BuyProduct': grpc.unary_unary_rpc_method_handler(
+                    servicer.BuyProduct,
+                    request_deserializer=proto_dot_pos__service__pb2.BuyProductRequest.FromString,
+                    response_serializer=proto_dot_pos__service__pb2.BuyProductResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -172,6 +189,33 @@ class POS(object):
             '/pos.POS/NotifyPeersToUpdatePrice',
             proto_dot_pos__service__pb2.UpdateProductPriceRequest.SerializeToString,
             proto_dot_pos__service__pb2.UpdateProductPriceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BuyProduct(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pos.POS/BuyProduct',
+            proto_dot_pos__service__pb2.BuyProductRequest.SerializeToString,
+            proto_dot_pos__service__pb2.BuyProductResponse.FromString,
             options,
             channel_credentials,
             insecure,

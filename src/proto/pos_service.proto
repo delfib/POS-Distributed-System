@@ -6,6 +6,8 @@ service POS {
   rpc GetProductPrice (GetProductPriceRequest) returns (GetProductPriceResponse);
   rpc UpdateProductPrice (UpdateProductPriceRequest) returns (UpdateProductPriceResponse);
   rpc NotifyPeersToUpdatePrice (UpdateProductPriceRequest) returns (UpdateProductPriceResponse);
+  //
+  rpc BuyProduct (BuyProductRequest) returns (BuyProductResponse);
 }
 
 message GetProductPriceRequest {
@@ -27,4 +29,17 @@ message UpdateProductPriceRequest {
 message UpdateProductPriceResponse {
   bool success = 1;
   string message = 2;  // Success or error message
+}
+
+//
+message BuyProductRequest {
+  int32 product_id = 1;
+  int32 quantity = 2;
+  string node_id_requesting = 3;
+}
+
+message BuyProductResponse {
+  bool success = 1;
+  string message = 2;  // Success or error message
+  float total_price = 3; // Total price for the purchase
 }
