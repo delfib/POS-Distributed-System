@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package pos;
+
+service POS {
+  rpc GetProductPrice (GetProductPriceRequest) returns (GetProductPriceResponse);
+  rpc UpdateProductPrice (UpdateProductPriceRequest) returns (UpdateProductPriceResponse);
+  rpc NotifyPeersToUpdatePrice (UpdateProductPriceRequest) returns (UpdateProductPriceResponse);
+}
+
+message GetProductPriceRequest {
+  int32 product_id = 1;
+}
+
+message GetProductPriceResponse {
+  int32 product_id = 1;
+  string name = 2;
+  float price = 3;
+  string message = 4;  // Error message if product is not found
+}
+
+message UpdateProductPriceRequest {
+  int32 product_id = 1;
+  float new_price = 2;
+}
+
+message UpdateProductPriceResponse {
+  bool success = 1;
+  string message = 2;  // Success or error message
+}
