@@ -11,7 +11,6 @@ from proto.pos_service_pb2 import (
 )
 from role import Role
 
-
 class POSServicer(pos_service_pb2_grpc.POSServicer):
     def __init__(
         self,
