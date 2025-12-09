@@ -1,5 +1,6 @@
 grpcio-tools==1.76.0
 grpcio==1.76.0
 protobuf==6.33.2
+ruff==0.14.8
 setuptools==80.9.0
 typing_extensions==4.15.0
