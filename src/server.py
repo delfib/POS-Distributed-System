@@ -11,9 +11,9 @@ from role import Role
 
 def main():
     # Initialize the deposit (database)
-    deposit1 = Deposit(database_path="src/db/db1.json")  # Leader's database
-    deposit2 = Deposit(database_path="src/db/db2.json")  # Follower 1's database
-    deposit3 = Deposit(database_path="src/db/db3.json")  # Follower 2's database
+    deposit1 = Deposit(database_path="db/db1.json")  
+    deposit2 = Deposit(database_path="db/db2.json")  
+    deposit3 = Deposit(database_path="db/db3.json")  
 
     # Cluster configuration
     peers = {
@@ -23,30 +23,9 @@ def main():
     }
 
     # Create POS nodes (start as followers, Raft will elect a leader)
-    node_1 = POSServicer(
-        deposit1,
-        "POS1",
-        Role.FOLLOWER,
-        [peers["POS2"], peers["POS3"]],
-        "localhost",
-        50051,
-    )
-    node_2 = POSServicer(
-        deposit2,
-        "POS2",
-        Role.FOLLOWER,
-        [peers["POS1"], peers["POS3"]],
-        "localhost",
-        50052,
-    )
-    node_3 = POSServicer(
-        deposit3,
-        "POS3",
-        Role.FOLLOWER,
-        [peers["POS1"], peers["POS2"]],
-        "localhost",
-        50053,
-    )
+    node_1 = POSServicer(deposit1, "POS1", Role.FOLLOWER, [peers["POS2"], peers["POS3"]], "localhost", 50051,)
+    node_2 = POSServicer(deposit2, "POS2", Role.FOLLOWER, [peers["POS1"], peers["POS3"]], "localhost", 50052,)
+    node_3 = POSServicer(deposit3, "POS3", Role.FOLLOWER, [peers["POS1"], peers["POS2"]], "localhost", 50053,)
 
     # Start 3 servers, each on different ports
     server1 = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
@@ -67,10 +46,6 @@ def main():
     server3.start()
     print("gRPC server started on port 50053 (Follower 2)")
 
-    # Start Raft background workers after servers are listening
-    node_1.start()
-    node_2.start()
-    node_3.start()
 
     try:
         while True:

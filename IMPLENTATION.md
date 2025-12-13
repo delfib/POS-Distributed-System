@@ -12,10 +12,16 @@ Hay que ver bien todavia que arquitectura vamos a usar.
 - que operaciones deberian tener permitidos los nodos y cuales no? Los nodos solamente deberian poder vender o agregar productos nuevos por ejemplo? O esto es solo algo que pueda hacer el nodo lider?
 - Como deberia darse la comunicacion entre los nodos? con un address con puerto?
 
-- Con respecto a la actualizacion de un precio, el algoritmo que nosotros implementamos es simple: el nodo lider actualiza su precio local y luego les pide a el resto de su de act peers que actualicen su precio. Pero en ningun momento el lider da la orden
+- Con respecto a la actualizacion de un precio, el algoritmo que nosotros implementamos es simple: el nodo lider actualiza su precio local y luego les pide a el resto de su de act peers que actualicen su precio. El que lo puede actualizar bien y sino no se actualiza.
 
 - Como deberia ser el ejemplo a mostrar, si quiere toda una secuencia de codigo en un solo comando, o si deberiamos hacer una prueba mas en tiempo real.
 
+
+- RAFT: como funciona lo del term?? en cada term tenemos qeu elegir un lider nuevo? tenemos que implementar una especie de reloj logico para ir llevando la cuenta de los terms??
+- como funciona el voto del lider? porque un nodo vota a otro? en base a que lo vota?
+
+
+- como hacemos una demo o un ejemplo para mostrar? 
 ---
 
 ## Implementation

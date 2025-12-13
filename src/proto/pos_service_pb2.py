@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17proto/pos_service.proto\x12\x03pos\",\n\x16GetProductPriceRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\"[\n\x17GetProductPriceResponse\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\r\n\x05price\x18\x03 \x01(\x02\x12\x0f\n\x07message\x18\x04 \x01(\t\"B\n\x19UpdateProductPriceRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x11\n\tnew_price\x18\x02 \x01(\x02\">\n\x1aUpdateProductPriceResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"U\n\x11\x42uyProductRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x10\n\x08quantity\x18\x02 \x01(\x05\x12\x1a\n\x12node_id_requesting\x18\x03 \x01(\t\"K\n\x12\x42uyProductResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x13\n\x0btotal_price\x18\x03 \x01(\x02\"8\n\x12RequestVoteRequest\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x14\n\x0c\x63\x61ndidate_id\x18\x02 \x01(\t\"9\n\x13RequestVoteResponse\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x14\n\x0cvote_granted\x18\x02 \x01(\x08\"7\n\x14\x41ppendEntriesRequest\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x11\n\tleader_id\x18\x02 \x01(\t\"6\n\x15\x41ppendEntriesResponse\x12\x0c\n\x04term\x18\x01 \x01(\x05\x12\x0f\n\x07success\x18\x02 \x01(\x08\x32\xd0\x03\n\x03POS\x12L\n\x0fGetProductPrice\x12\x1b.pos.GetProductPriceRequest\x1a\x1c.pos.GetProductPriceResponse\x12U\n\x12UpdateProductPrice\x12\x1e.pos.UpdateProductPriceRequest\x1a\x1f.pos.UpdateProductPriceResponse\x12[\n\x18NotifyPeersToUpdatePrice\x12\x1e.pos.UpdateProductPriceRequest\x1a\x1f.pos.UpdateProductPriceResponse\x12=\n\nBuyProduct\x12\x16.pos.BuyProductRequest\x1a\x17.pos.BuyProductResponse\x12@\n\x0bRequestVote\x12\x17.pos.RequestVoteRequest\x1a\x18.pos.RequestVoteResponse\x12\x46\n\rAppendEntries\x12\x19.pos.AppendEntriesRequest\x1a\x1a.pos.AppendEntriesResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17proto/pos_service.proto\x12\x03pos\",\n\x16GetProductPriceRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\"[\n\x17GetProductPriceResponse\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\r\n\x05price\x18\x03 \x01(\x02\x12\x0f\n\x07message\x18\x04 \x01(\t\"B\n\x19UpdateProductPriceRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x11\n\tnew_price\x18\x02 \x01(\x02\">\n\x1aUpdateProductPriceResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"9\n\x11\x42uyProductRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x10\n\x08quantity\x18\x02 \x01(\x05\"M\n\x12\x42uyProductResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x15\n\rquantity_sold\x18\x02 \x01(\x05\x12\x0f\n\x07message\x18\x03 \x01(\t\";\n\x13RequestStockRequest\x12\x12\n\nproduct_id\x18\x01 \x01(\x05\x12\x10\n\x08quantity\x18\x02 \x01(\x05\"1\n\x14RequestStockResponse\x12\x19\n\x11quantity_provided\x18\x01 \x01(\x05\x32\x8b\x03\n\x03POS\x12L\n\x0fGetProductPrice\x12\x1b.pos.GetProductPriceRequest\x1a\x1c.pos.GetProductPriceResponse\x12U\n\x12UpdateProductPrice\x12\x1e.pos.UpdateProductPriceRequest\x1a\x1f.pos.UpdateProductPriceResponse\x12[\n\x18NotifyPeersToUpdatePrice\x12\x1e.pos.UpdateProductPriceRequest\x1a\x1f.pos.UpdateProductPriceResponse\x12=\n\nBuyProduct\x12\x16.pos.BuyProductRequest\x1a\x17.pos.BuyProductResponse\x12\x43\n\x0cRequestStock\x12\x18.pos.RequestStockRequest\x1a\x19.pos.RequestStockResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -40,17 +40,13 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_UPDATEPRODUCTPRICERESPONSE']._serialized_start=239
   _globals['_UPDATEPRODUCTPRICERESPONSE']._serialized_end=301
   _globals['_BUYPRODUCTREQUEST']._serialized_start=303
-  _globals['_BUYPRODUCTREQUEST']._serialized_end=388
-  _globals['_BUYPRODUCTRESPONSE']._serialized_start=390
-  _globals['_BUYPRODUCTRESPONSE']._serialized_end=465
-  _globals['_REQUESTVOTEREQUEST']._serialized_start=467
-  _globals['_REQUESTVOTEREQUEST']._serialized_end=523
-  _globals['_REQUESTVOTERESPONSE']._serialized_start=525
-  _globals['_REQUESTVOTERESPONSE']._serialized_end=582
-  _globals['_APPENDENTRIESREQUEST']._serialized_start=584
-  _globals['_APPENDENTRIESREQUEST']._serialized_end=639
-  _globals['_APPENDENTRIESRESPONSE']._serialized_start=641
-  _globals['_APPENDENTRIESRESPONSE']._serialized_end=695
-  _globals['_POS']._serialized_start=698
-  _globals['_POS']._serialized_end=1162
+  _globals['_BUYPRODUCTREQUEST']._serialized_end=360
+  _globals['_BUYPRODUCTRESPONSE']._serialized_start=362
+  _globals['_BUYPRODUCTRESPONSE']._serialized_end=439
+  _globals['_REQUESTSTOCKREQUEST']._serialized_start=441
+  _globals['_REQUESTSTOCKREQUEST']._serialized_end=500
+  _globals['_REQUESTSTOCKRESPONSE']._serialized_start=502
+  _globals['_REQUESTSTOCKRESPONSE']._serialized_end=551
+  _globals['_POS']._serialized_start=554
+  _globals['_POS']._serialized_end=949
 # @@protoc_insertion_point(module_scope)

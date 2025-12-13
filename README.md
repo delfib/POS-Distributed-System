@@ -9,7 +9,7 @@
 ### Run the servers in Terminal 1
 
 ```bash
-python3 pos.py
+python3 server.py
 ```
 
 ### Run the client in Terminal 2

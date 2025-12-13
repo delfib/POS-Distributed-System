@@ -54,15 +54,10 @@ class POSStub(object):
                 request_serializer=proto_dot_pos__service__pb2.BuyProductRequest.SerializeToString,
                 response_deserializer=proto_dot_pos__service__pb2.BuyProductResponse.FromString,
                 _registered_method=True)
-        self.RequestVote = channel.unary_unary(
-                '/pos.POS/RequestVote',
-                request_serializer=proto_dot_pos__service__pb2.RequestVoteRequest.SerializeToString,
-                response_deserializer=proto_dot_pos__service__pb2.RequestVoteResponse.FromString,
-                _registered_method=True)
-        self.AppendEntries = channel.unary_unary(
-                '/pos.POS/AppendEntries',
-                request_serializer=proto_dot_pos__service__pb2.AppendEntriesRequest.SerializeToString,
-                response_deserializer=proto_dot_pos__service__pb2.AppendEntriesResponse.FromString,
+        self.RequestStock = channel.unary_unary(
+                '/pos.POS/RequestStock',
+                request_serializer=proto_dot_pos__service__pb2.RequestStockRequest.SerializeToString,
+                response_deserializer=proto_dot_pos__service__pb2.RequestStockResponse.FromString,
                 _registered_method=True)
 
 
@@ -88,20 +83,12 @@ class POSServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def BuyProduct(self, request, context):
-        """
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RequestVote(self, request, context):
-        """
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def AppendEntries(self, request, context):
+    def RequestStock(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -130,15 +117,10 @@ def add_POSServicer_to_server(servicer, server):
                     request_deserializer=proto_dot_pos__service__pb2.BuyProductRequest.FromString,
                     response_serializer=proto_dot_pos__service__pb2.BuyProductResponse.SerializeToString,
             ),
-            'RequestVote': grpc.unary_unary_rpc_method_handler(
-                    servicer.RequestVote,
-                    request_deserializer=proto_dot_pos__service__pb2.RequestVoteRequest.FromString,
-                    response_serializer=proto_dot_pos__service__pb2.RequestVoteResponse.SerializeToString,
-            ),
-            'AppendEntries': grpc.unary_unary_rpc_method_handler(
-                    servicer.AppendEntries,
-                    request_deserializer=proto_dot_pos__service__pb2.AppendEntriesRequest.FromString,
-                    response_serializer=proto_dot_pos__service__pb2.AppendEntriesResponse.SerializeToString,
+            'RequestStock': grpc.unary_unary_rpc_method_handler(
+                    servicer.RequestStock,
+                    request_deserializer=proto_dot_pos__service__pb2.RequestStockRequest.FromString,
+                    response_serializer=proto_dot_pos__service__pb2.RequestStockResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -260,7 +242,7 @@ class POS(object):
             _registered_method=True)
 
     @staticmethod
-    def RequestVote(request,
+    def RequestStock(request,
             target,
             options=(),
             channel_credentials=None,
@@ -273,36 +255,9 @@ class POS(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/pos.POS/RequestVote',
-            proto_dot_pos__service__pb2.RequestVoteRequest.SerializeToString,
-            proto_dot_pos__service__pb2.RequestVoteResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def AppendEntries(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/pos.POS/AppendEntries',
-            proto_dot_pos__service__pb2.AppendEntriesRequest.SerializeToString,
-            proto_dot_pos__service__pb2.AppendEntriesResponse.FromString,
+            '/pos.POS/RequestStock',
+            proto_dot_pos__service__pb2.RequestStockRequest.SerializeToString,
+            proto_dot_pos__service__pb2.RequestStockResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -52,14 +52,27 @@ class Deposit:
             product = self._items.get(product_id)
             if product:
                 product.quantity += quantity
-
-    def sell_product(self, product_id: int, quantity: int) -> bool:
+        
+    def sell_product(self, product_id: int, requested_qty: int) -> int:
+        """
+        Attempt to sell `requested_qty` units of a product.
+        Returns how many units could NOT be sold.
+        """
         with self._lock:
             product = self._items.get(product_id)
-            if not product or product.quantity < quantity:
-                return False
-            product.quantity -= quantity
-            return True
+            if not product:
+                return requested_qty
+            
+            qty_available = product.quantity
+
+            if qty_available >= requested_qty:
+                product.quantity -= requested_qty
+                self._save_products()
+                return 0  
+
+            product.quantity = 0
+            self._save_products()
+            return requested_qty - qty_available
 
     def change_price(self, product_id: int, price: float) -> bool:
         with self._lock:

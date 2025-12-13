@@ -6,11 +6,8 @@ service POS {
   rpc GetProductPrice (GetProductPriceRequest) returns (GetProductPriceResponse);
   rpc UpdateProductPrice (UpdateProductPriceRequest) returns (UpdateProductPriceResponse);
   rpc NotifyPeersToUpdatePrice (UpdateProductPriceRequest) returns (UpdateProductPriceResponse);
-  //
   rpc BuyProduct (BuyProductRequest) returns (BuyProductResponse);
-  //
-  rpc RequestVote (RequestVoteRequest) returns (RequestVoteResponse);
-  rpc AppendEntries (AppendEntriesRequest) returns (AppendEntriesResponse);
+  rpc RequestStock (RequestStockRequest) returns (RequestStockResponse);
 }
 
 message GetProductPriceRequest {
@@ -34,36 +31,17 @@ message UpdateProductPriceResponse {
   string message = 2;  // Success or error message
 }
 
-//
-message BuyProductRequest {
-  int32 product_id = 1;
-  int32 quantity = 2;
-  string node_id_requesting = 3;
-}
-
 message BuyProductResponse {
   bool success = 1;
-  string message = 2;  // Success or error message
-  float total_price = 3; // Total price for the purchase
+  int32 quantity_sold = 2;
+  string message = 3;
 }
 
-// --- Raft leader election RPCs ---
-message RequestVoteRequest {
-  int32 term = 1;
-  string candidate_id = 2;
+message RequestStockRequest {
+  int32 product_id = 1;
+  int32 quantity = 2;
 }
 
-message RequestVoteResponse {
-  int32 term = 1;
-  bool vote_granted = 2;
-}
-
-message AppendEntriesRequest {
-  int32 term = 1;
-  string leader_id = 2;
-}
-
-message AppendEntriesResponse {
-  int32 term = 1;
-  bool success = 2;
+message RequestStockResponse {
+  int32 quantity_provided = 1;
 }
