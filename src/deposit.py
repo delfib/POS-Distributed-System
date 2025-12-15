@@ -1,7 +1,7 @@
 import json
 import threading
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional
 
 
 @dataclass
@@ -10,6 +10,7 @@ class Product:
     name: str
     price: float
     quantity: int = 0
+    version: int = 0
 
 
 class Deposit:
@@ -17,6 +18,7 @@ class Deposit:
         self.database_path = database_path
         self._items = self._load_products(database_path) if database_path else {}
         self._lock = threading.Lock()
+        self._pending_transactions: Dict[str, Dict] = {} 
 
     def _load_products(self, database_path: str):
         with open(database_path) as f:
@@ -31,6 +33,7 @@ class Deposit:
                     name=product.name,
                     price=product.price,
                     quantity=product.quantity,
+                    version=product.version,
                 )
                 for product in self._items.values()
             ]
@@ -45,6 +48,7 @@ class Deposit:
                 name=product.name,
                 price=product.price,
                 quantity=product.quantity,
+                version=product.version,
             )
 
     def add_stock(self, product_id: int, quantity: int) -> None:
@@ -52,6 +56,7 @@ class Deposit:
             product = self._items.get(product_id)
             if product:
                 product.quantity += quantity
+                self._save_products()
         
     def sell_product(self, product_id: int, requested_qty: int) -> int:
         """
@@ -84,6 +89,53 @@ class Deposit:
             self._save_products()
             return True
 
+    def prepare_price_change(self, transaction_id: str, product_id: int, new_price: float, version: int) -> bool:
+        """Phase 1: Prepare to change price. Returns True if ready."""
+        with self._lock:
+            product = self._items.get(product_id)
+            if not product:
+                return False
+
+            self._pending_transactions[transaction_id] = {
+                "product_id": product_id,
+                "new_price": new_price,
+                "version": version,
+            }
+            return True
+
+    def commit_price_change(self, transaction_id: str) -> bool:
+        """Phase 2: Commit the price change."""
+        with self._lock:
+            transaction = self._pending_transactions[transaction_id]
+            if not transaction:
+                return False
+            
+            product = self._items.get(transaction['product_id'])
+            
+            if not product:
+                del self._pending_transactions[transaction_id]
+                return False
+            
+            incoming_version = transaction["version"]
+
+            if incoming_version <= product.version:
+                del self._pending_transactions[transaction_id]
+                return False
+
+            product.price = transaction['new_price']
+            product.version = incoming_version
+            self._save_products()
+            
+            del self._pending_transactions[transaction_id]
+            return True
+
+    def abort_price_change(self, transaction_id: str) -> bool:
+        """Phase 2: Abort the price change."""
+        with self._lock:
+            if transaction_id in self._pending_transactions:
+                del self._pending_transactions[transaction_id]
+            return True
+        
     def _save_products(self):
         with open(self.database_path, "w") as f:
             data = {pid: product.__dict__ for pid, product in self._items.items()}

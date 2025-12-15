@@ -10,7 +10,7 @@ from role import Role
 
 
 def main():
-    # Initialize the deposit (database)
+    # Initialize the deposits (databases)
     deposit1 = Deposit(database_path="db/db1.json")  
     deposit2 = Deposit(database_path="db/db2.json")  
     deposit3 = Deposit(database_path="db/db3.json")  
@@ -22,35 +22,64 @@ def main():
         "POS3": ("localhost", 50053),
     }
 
-    # Create POS nodes (start as followers, Raft will elect a leader)
-    node_1 = POSServicer(deposit1, "POS1", Role.FOLLOWER, [peers["POS2"], peers["POS3"]], "localhost", 50051,)
-    node_2 = POSServicer(deposit2, "POS2", Role.FOLLOWER, [peers["POS1"], peers["POS3"]], "localhost", 50052,)
-    node_3 = POSServicer(deposit3, "POS3", Role.FOLLOWER, [peers["POS1"], peers["POS2"]], "localhost", 50053,)
+    # Define the leader (for now, POS1 is the leader)
+    leader_address = peers["POS1"]
+
+    # Create POS nodes
+    node_1 = POSServicer(
+        deposit=deposit1,
+        node_id="POS1",
+        role=Role.LEADER,  # POS1 is the leader
+        peers=[peers["POS2"], peers["POS3"]],
+        host="localhost",
+        port=50051,
+        leader_node=leader_address  # Leader knows itself
+    )
+    
+    node_2 = POSServicer(
+        deposit=deposit2,
+        node_id="POS2",
+        role=Role.FOLLOWER,  # POS2 is a follower
+        peers=[peers["POS1"], peers["POS3"]],
+        host="localhost",
+        port=50052,
+        leader_node=leader_address  # Follower knows who the leader is
+    )
+    
+    node_3 = POSServicer(
+        deposit=deposit3,
+        node_id="POS3",
+        role=Role.FOLLOWER,  # POS3 is a follower
+        peers=[peers["POS1"], peers["POS2"]],
+        host="localhost",
+        port=50053,
+        leader_node=leader_address  # Follower knows who the leader is
+    )
 
     # Start 3 servers, each on different ports
     server1 = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     pos_service_pb2_grpc.add_POSServicer_to_server(node_1, server1)
-    server1.add_insecure_port("[::]:50051")  # Leader on port 50051
+    server1.add_insecure_port("[::]:50051")
     server1.start()
-    print("gRPC server started on port 50051 (Leader)")
+    print("gRPC server started on port 50051 (POS1 - LEADER)")
 
     server2 = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     pos_service_pb2_grpc.add_POSServicer_to_server(node_2, server2)
-    server2.add_insecure_port("[::]:50052")  # Follower 1 on port 50052
+    server2.add_insecure_port("[::]:50052")
     server2.start()
-    print("gRPC server started on port 50052 (Follower 1)")
+    print("gRPC server started on port 50052 (POS2 - FOLLOWER)")
 
     server3 = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     pos_service_pb2_grpc.add_POSServicer_to_server(node_3, server3)
-    server3.add_insecure_port("[::]:50053")  # Follower 2 on port 50053
+    server3.add_insecure_port("[::]:50053")
     server3.start()
-    print("gRPC server started on port 50053 (Follower 2)")
-
+    print("gRPC server started on port 50053 (POS3 - FOLLOWER)")
 
     try:
         while True:
             time.sleep(86400)  # Keep all servers running
     except KeyboardInterrupt:
+        print("\nShutting down servers...")
         server1.stop(0)
         server2.stop(0)
         server3.stop(0)

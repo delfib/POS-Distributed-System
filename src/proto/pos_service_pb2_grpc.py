@@ -59,6 +59,21 @@ class POSStub(object):
                 request_serializer=proto_dot_pos__service__pb2.RequestStockRequest.SerializeToString,
                 response_deserializer=proto_dot_pos__service__pb2.RequestStockResponse.FromString,
                 _registered_method=True)
+        self.PrepareUpdatePrice = channel.unary_unary(
+                '/pos.POS/PrepareUpdatePrice',
+                request_serializer=proto_dot_pos__service__pb2.PrepareUpdatePriceRequest.SerializeToString,
+                response_deserializer=proto_dot_pos__service__pb2.PrepareUpdatePriceResponse.FromString,
+                _registered_method=True)
+        self.CommitUpdatePrice = channel.unary_unary(
+                '/pos.POS/CommitUpdatePrice',
+                request_serializer=proto_dot_pos__service__pb2.CommitUpdatePriceRequest.SerializeToString,
+                response_deserializer=proto_dot_pos__service__pb2.CommitUpdatePriceResponse.FromString,
+                _registered_method=True)
+        self.AbortUpdatePrice = channel.unary_unary(
+                '/pos.POS/AbortUpdatePrice',
+                request_serializer=proto_dot_pos__service__pb2.AbortUpdatePriceRequest.SerializeToString,
+                response_deserializer=proto_dot_pos__service__pb2.AbortUpdatePriceResponse.FromString,
+                _registered_method=True)
 
 
 class POSServicer(object):
@@ -94,6 +109,24 @@ class POSServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PrepareUpdatePrice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CommitUpdatePrice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AbortUpdatePrice(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_POSServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -121,6 +154,21 @@ def add_POSServicer_to_server(servicer, server):
                     servicer.RequestStock,
                     request_deserializer=proto_dot_pos__service__pb2.RequestStockRequest.FromString,
                     response_serializer=proto_dot_pos__service__pb2.RequestStockResponse.SerializeToString,
+            ),
+            'PrepareUpdatePrice': grpc.unary_unary_rpc_method_handler(
+                    servicer.PrepareUpdatePrice,
+                    request_deserializer=proto_dot_pos__service__pb2.PrepareUpdatePriceRequest.FromString,
+                    response_serializer=proto_dot_pos__service__pb2.PrepareUpdatePriceResponse.SerializeToString,
+            ),
+            'CommitUpdatePrice': grpc.unary_unary_rpc_method_handler(
+                    servicer.CommitUpdatePrice,
+                    request_deserializer=proto_dot_pos__service__pb2.CommitUpdatePriceRequest.FromString,
+                    response_serializer=proto_dot_pos__service__pb2.CommitUpdatePriceResponse.SerializeToString,
+            ),
+            'AbortUpdatePrice': grpc.unary_unary_rpc_method_handler(
+                    servicer.AbortUpdatePrice,
+                    request_deserializer=proto_dot_pos__service__pb2.AbortUpdatePriceRequest.FromString,
+                    response_serializer=proto_dot_pos__service__pb2.AbortUpdatePriceResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -258,6 +306,87 @@ class POS(object):
             '/pos.POS/RequestStock',
             proto_dot_pos__service__pb2.RequestStockRequest.SerializeToString,
             proto_dot_pos__service__pb2.RequestStockResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PrepareUpdatePrice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pos.POS/PrepareUpdatePrice',
+            proto_dot_pos__service__pb2.PrepareUpdatePriceRequest.SerializeToString,
+            proto_dot_pos__service__pb2.PrepareUpdatePriceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CommitUpdatePrice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pos.POS/CommitUpdatePrice',
+            proto_dot_pos__service__pb2.CommitUpdatePriceRequest.SerializeToString,
+            proto_dot_pos__service__pb2.CommitUpdatePriceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AbortUpdatePrice(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pos.POS/AbortUpdatePrice',
+            proto_dot_pos__service__pb2.AbortUpdatePriceRequest.SerializeToString,
+            proto_dot_pos__service__pb2.AbortUpdatePriceResponse.FromString,
             options,
             channel_credentials,
             insecure,

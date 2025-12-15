@@ -2,19 +2,22 @@
     "1": {
         "id": 1,
         "name": "Apple",
-        "price": 0.5,
-        "quantity": 8
+        "price": 9.0,
+        "quantity": 0,
+        "version": 6
     },
     "2": {
         "id": 2,
         "name": "Banana",
         "price": 0.3,
-        "quantity": 7
+        "quantity": 7,
+        "version": 0
     },
     "3": {
         "id": 3,
         "name": "Orange",
         "price": 0.7,
-        "quantity": 6
+        "quantity": 6,
+        "version": 0
     }
 }
