@@ -18,7 +18,7 @@ class Deposit:
         self.database_path = database_path
         self._items = self._load_products(database_path) if database_path else {}
         self._lock = threading.Lock()
-        self._pending_transactions: Dict[str, Dict] = {} 
+        self._pending_transactions: Dict[str, Dict] = {}
 
     def _load_products(self, database_path: str):
         with open(database_path) as f:
@@ -57,7 +57,7 @@ class Deposit:
             if product:
                 product.quantity += quantity
                 self._save_products()
-        
+
     def sell_product(self, product_id: int, requested_qty: int) -> int:
         """
         Attempt to sell `requested_qty` units of a product.
@@ -67,13 +67,13 @@ class Deposit:
             product = self._items.get(product_id)
             if not product:
                 return requested_qty
-            
+
             qty_available = product.quantity
 
             if qty_available >= requested_qty:
                 product.quantity -= requested_qty
                 self._save_products()
-                return 0  
+                return 0
 
             product.quantity = 0
             self._save_products()
@@ -89,7 +89,9 @@ class Deposit:
             self._save_products()
             return True
 
-    def prepare_price_change(self, transaction_id: str, product_id: int, new_price: float, version: int) -> bool:
+    def prepare_price_change(
+        self, transaction_id: str, product_id: int, new_price: float, version: int
+    ) -> bool:
         """Phase 1: Prepare to change price. Returns True if ready."""
         with self._lock:
             product = self._items.get(product_id)
@@ -109,23 +111,23 @@ class Deposit:
             transaction = self._pending_transactions[transaction_id]
             if not transaction:
                 return False
-            
-            product = self._items.get(transaction['product_id'])
-            
+
+            product = self._items.get(transaction["product_id"])
+
             if not product:
                 del self._pending_transactions[transaction_id]
                 return False
-            
+
             incoming_version = transaction["version"]
 
             if incoming_version <= product.version:
                 del self._pending_transactions[transaction_id]
                 return False
 
-            product.price = transaction['new_price']
+            product.price = transaction["new_price"]
             product.version = incoming_version
             self._save_products()
-            
+
             del self._pending_transactions[transaction_id]
             return True
 
@@ -135,7 +137,7 @@ class Deposit:
             if transaction_id in self._pending_transactions:
                 del self._pending_transactions[transaction_id]
             return True
-        
+
     def _save_products(self):
         with open(self.database_path, "w") as f:
             data = {pid: product.__dict__ for pid, product in self._items.items()}

@@ -2,8 +2,8 @@ import grpc
 
 import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from proto.pos_service_pb2 import (
-    GetProductPriceRequest,
     BuyProductRequest,
+    GetProductPriceRequest,
     UpdateProductPriceRequest,
 )
 
@@ -13,7 +13,7 @@ def test_price_operations():
     print("=" * 60)
     print("Testing Price Operations")
     print("=" * 60)
-    
+
     # Connect to POS1 (the leader)
     channel = grpc.insecure_channel("localhost:50051")
     stub = pos_service_pb2_grpc.POSStub(channel)
@@ -32,7 +32,7 @@ def test_price_operations():
     print("\n[2] Updating price of product 1 to $25 (via leader - POS1)...")
     update_request = UpdateProductPriceRequest(product_id=1, new_price=25)
     update_response = stub.UpdateProductPrice(update_request)
-    
+
     print(f"   Success: {update_response.success}")
     print(f"   Message: {update_response.message}")
 
@@ -49,17 +49,17 @@ def test_forward_to_leader():
     print("\n" + "=" * 60)
     print("Testing Forward to Leader")
     print("=" * 60)
-    
+
     # Connect to POS2 (a follower)
     channel = grpc.insecure_channel("localhost:50052")
     stub = pos_service_pb2_grpc.POSStub(channel)
 
     print("\n[1] Requesting price update via follower (POS2)...")
     print("   (This should be forwarded to the leader)")
-    
+
     update_request = UpdateProductPriceRequest(product_id=1, new_price=9)
     update_response = stub.UpdateProductPrice(update_request)
-    
+
     print(f"   Success: {update_response.success}")
     print(f"   Message: {update_response.message}")
 
@@ -77,7 +77,7 @@ def test_buy_product():
     print("\n" + "=" * 60)
     print("Testing Buy Product")
     print("=" * 60)
-    
+
     channel = grpc.insecure_channel("localhost:50051")
     stub = pos_service_pb2_grpc.POSStub(channel)
 
@@ -97,7 +97,7 @@ def test_all_nodes_see_same_price():
     print("\n" + "=" * 60)
     print("Testing Price Consistency Across All Nodes")
     print("=" * 60)
-    
+
     nodes = [
         ("POS1", "localhost", 50051),
         ("POS2", "localhost", 50052),
@@ -108,11 +108,11 @@ def test_all_nodes_see_same_price():
     for node_name, host, port in nodes:
         channel = grpc.insecure_channel(f"{host}:{port}")
         stub = pos_service_pb2_grpc.POSStub(channel)
-        
+
         request = GetProductPriceRequest(product_id=1)
         response = stub.GetProductPrice(request)
         print(f"   {node_name}: ${response.price}")
-        
+
         channel.close()
 
     # Update price via leader
@@ -128,11 +128,11 @@ def test_all_nodes_see_same_price():
     for node_name, host, port in nodes:
         channel = grpc.insecure_channel(f"{host}:{port}")
         stub = pos_service_pb2_grpc.POSStub(channel)
-        
+
         request = GetProductPriceRequest(product_id=1)
         response = stub.GetProductPrice(request)
         print(f"   {node_name}: ${response.price}")
-        
+
         channel.close()
 
 
@@ -142,11 +142,11 @@ def run():
         # test_forward_to_leader()
         # test_all_nodes_see_same_price()
         test_buy_product()
-        
+
         print("\n" + "=" * 60)
         print("All tests completed!")
         print("=" * 60)
-        
+
     except grpc.RpcError as e:
         print(f"\nError: {e}")
         print("Make sure all servers are running!")
