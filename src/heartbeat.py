@@ -1,9 +1,11 @@
 import random
 import threading
 import time
-from typing import Callable, List, Tuple
+from typing import List, Tuple
 
+from proto.pos_service_pb2 import HeartbeatRequest
 from role import Role
+from rpc_caller import RPCCaller
 
 HEARTBEAT_INTERVAL = 2.0  # how often leader sends heartbeats
 HEARTBEAT_TIMEOUT_MIN = 5.0  # follower minimum wait time
@@ -23,14 +25,10 @@ class HeartbeatManager:
         node_id: str,
         role: Role,
         peers: List[Tuple[str, int]],
-        send_heartbeat_to_peer: Callable[[str, int], None],
-        on_leader_failure: Callable[[], None],
     ):
         self.node_id = node_id
         self.role = role
         self.peers = peers
-        self._send_heartbeat_to_peer = send_heartbeat_to_peer
-        self._on_leader_failure = on_leader_failure
 
         self.last_heartbeat_time = time.time()
         self.heartbeat_timeout = self._random_timeout()
@@ -84,3 +82,16 @@ class HeartbeatManager:
                 return
 
             time.sleep(0.5)
+
+    def _send_heartbeat_to_peer(self, peer_host: str, peer_port: int):
+        """Envía un heartbeat a un peer específico."""
+        RPCCaller.execute_rpc_call(
+            peer_host,
+            peer_port,
+            "SendHeartbeat",
+            HeartbeatRequest(leader_id=self.node_id),
+            timeout=2.0,
+        )
+
+    def _on_leader_failure(self):
+        print(f"[{self.node_id}] Starting leader election (later)")

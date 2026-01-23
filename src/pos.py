@@ -10,7 +10,6 @@ from proto.pos_service_pb2 import (
     CommitUpdatePriceRequest,
     CommitUpdatePriceResponse,
     GetProductPriceResponse,
-    HeartbeatRequest,
     HeartbeatResponse,
     PrepareUpdatePriceRequest,
     PrepareUpdatePriceResponse,
@@ -47,8 +46,6 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
             node_id=node_id,
             role=role,
             peers=peers,
-            send_heartbeat_to_peer=self._send_heartbeat_to_peer,
-            on_leader_failure=self._on_leader_failure,
         )
 
     def start(self):
@@ -56,19 +53,6 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
 
     def stop(self):
         self.heartbeat_manager.stop()
-
-    def _send_heartbeat_to_peer(self, peer_host: str, peer_port: int):
-        """Envía un heartbeat a un peer específico."""
-        RPCCaller.execute_rpc_call(
-            peer_host,
-            peer_port,
-            "SendHeartbeat",
-            HeartbeatRequest(leader_id=self.node_id),
-            timeout=2.0,
-        )
-
-    def _on_leader_failure(self):
-        print(f"[{self.node_id}] Starting leader election (later)")
 
     def _generate_transaction_id(self):
         """Generate a sequential transaction ID"""
@@ -78,10 +62,6 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
     def _is_leader(self) -> bool:
         """Check if this node is the leader"""
         return self.role == Role.LEADER
-
-    # --------------------------------------------------
-    # Heartbeat RPC handler
-    # --------------------------------------------------
 
     def SendHeartbeat(self, request, context):
         self.heartbeat_manager.receive_heartbeat(request.leader_id)
