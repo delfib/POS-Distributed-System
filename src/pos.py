@@ -17,9 +17,15 @@ from proto.pos_service_pb2 import (
     CommitUpdatePriceRequest,
     CommitUpdatePriceResponse,
     AbortUpdatePriceRequest,
-    AbortUpdatePriceResponse 
+    AbortUpdatePriceResponse,
+    HeartbeatRequest,
+    HeartbeatResponse 
 )
 from role import Role
+
+HEARTBEAT_INTERVAL = 2.0      # how often leader sends heartbeats
+HEARTBEAT_TIMEOUT_MIN = 5.0   # follower minimum wait time
+HEARTBEAT_TIMEOUT_MAX = 10.0  # follower maximum wait time
 
 class POSServicer(pos_service_pb2_grpc.POSServicer):
     def __init__(
@@ -42,6 +48,18 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         self.transaction_counter = 0  # Counter for transactions
         self.transaction_lock = threading.Lock()  # Lock for counter
 
+        self.last_heartbeat_time = time.time()
+        self.heartbeat_timeout = self._random_timeout()
+        self.running = False
+        self.start()
+
+    def start(self):
+        if self.running:
+            return  
+
+        self.running = True
+        self.start_heartbeat_threads()
+
     def _generate_transaction_id(self):
         """Generate a sequential transaction ID"""
         with self.transaction_lock:
@@ -51,6 +69,9 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         """Check if this node is the leader"""
         return self.role == Role.LEADER
 
+    def _random_timeout(self):
+        return random.uniform(HEARTBEAT_TIMEOUT_MIN , HEARTBEAT_TIMEOUT_MAX)
+    
     def _contact_peer(self, peer_host: str, peer_port: int, method_name: str, request_obj, timeout=5.0):
         """Contact a peer and execute an RPC call. Returns (success: bool, response: Any)"""
         try:
@@ -66,6 +87,59 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
             print(f"[{self.node_id}] Failed to contact {peer_host}:{peer_port}: {e}")
             return False, None
 
+    # --------------------------------------------------
+    # Heartbeat logic
+    # --------------------------------------------------
+
+    def start_heartbeat_threads(self):
+        if self._is_leader():
+            threading.Thread(
+                target=self._heartbeat_sender_loop, daemon=True     # with daemon=True the thread dies instantly once the process exits
+            ).start()
+        else:
+            threading.Thread(
+                target=self._heartbeat_watcher_loop, daemon=True
+            ).start()
+
+    def _heartbeat_sender_loop(self):
+        while self.running:
+            for peer_host, peer_port in self.peers:
+                self._contact_peer(
+                    peer_host,
+                    peer_port,
+                    "SendHeartbeat",
+                    HeartbeatRequest(leader_id=self.node_id),
+                    timeout=2.0,
+                )
+            print(f"[{self.node_id} ({self.role})] Sending heartbeats...")
+
+            time.sleep(HEARTBEAT_INTERVAL)
+        
+
+    def _heartbeat_watcher_loop(self):
+        while self.running:
+            time_elapsed = time.time() - self.last_heartbeat_time
+
+            if time_elapsed > self.heartbeat_timeout:
+                print(f"[{self.node_id}] Leader heartbeat missed")
+                self._on_leader_failure()
+                return
+
+            time.sleep(0.5)
+
+
+    def _on_leader_failure(self):
+        print(f"[{self.node_id}] Starting leader election (later)")
+
+    def SendHeartbeat(self, request, context):
+        print(f"[{self.node_id} ({self.role})] Heartbeat received from {request.leader_id}")
+        self.last_heartbeat_time = time.time()
+        self.heartbeat_timeout = self._random_timeout()
+        return HeartbeatResponse(success=True)
+    
+    # --------------------------------------------------
+    # Product logic
+    # --------------------------------------------------
 
     def GetProductPrice(self, request, context):
         """RPC to get product price"""
@@ -243,3 +317,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
 
         success = self.deposit.abort_price_change(transaction_id)
         return AbortUpdatePriceResponse(success=success)
+    
+
+    def stop(self):
+        self.running = False

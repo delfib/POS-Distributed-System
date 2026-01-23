@@ -74,6 +74,11 @@ class POSStub(object):
                 request_serializer=proto_dot_pos__service__pb2.AbortUpdatePriceRequest.SerializeToString,
                 response_deserializer=proto_dot_pos__service__pb2.AbortUpdatePriceResponse.FromString,
                 _registered_method=True)
+        self.SendHeartbeat = channel.unary_unary(
+                '/pos.POS/SendHeartbeat',
+                request_serializer=proto_dot_pos__service__pb2.HeartbeatRequest.SerializeToString,
+                response_deserializer=proto_dot_pos__service__pb2.HeartbeatResponse.FromString,
+                _registered_method=True)
 
 
 class POSServicer(object):
@@ -127,6 +132,12 @@ class POSServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SendHeartbeat(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_POSServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -169,6 +180,11 @@ def add_POSServicer_to_server(servicer, server):
                     servicer.AbortUpdatePrice,
                     request_deserializer=proto_dot_pos__service__pb2.AbortUpdatePriceRequest.FromString,
                     response_serializer=proto_dot_pos__service__pb2.AbortUpdatePriceResponse.SerializeToString,
+            ),
+            'SendHeartbeat': grpc.unary_unary_rpc_method_handler(
+                    servicer.SendHeartbeat,
+                    request_deserializer=proto_dot_pos__service__pb2.HeartbeatRequest.FromString,
+                    response_serializer=proto_dot_pos__service__pb2.HeartbeatResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -387,6 +403,33 @@ class POS(object):
             '/pos.POS/AbortUpdatePrice',
             proto_dot_pos__service__pb2.AbortUpdatePriceRequest.SerializeToString,
             proto_dot_pos__service__pb2.AbortUpdatePriceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SendHeartbeat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pos.POS/SendHeartbeat',
+            proto_dot_pos__service__pb2.HeartbeatRequest.SerializeToString,
+            proto_dot_pos__service__pb2.HeartbeatResponse.FromString,
             options,
             channel_credentials,
             insecure,

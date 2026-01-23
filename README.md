@@ -2,18 +2,26 @@
 
 ## Setup
 
+Create an virtual environment, and install dependencies.
+
 ```sh
-./pos-toy/scripts/setup.sh
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### Run the servers in Terminal 1
+Compile the GRPC (?)
 
-```bash
-python3 server.py
+```sh
+./setup.sh
 ```
 
-### Run the client in Terminal 2
+## Run tool
 
-```bash
-python3 client.py
+```py
+python3 src/server.py
+```
+
+```py
+python3 src/client.py
 ```

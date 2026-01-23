@@ -2,9 +2,9 @@
     "1": {
         "id": 1,
         "name": "Apple",
-        "price": 9.0,
+        "price": 25.0,
         "quantity": 0,
-        "version": 6
+        "version": 11
     },
     "2": {
         "id": 2,

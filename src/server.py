@@ -1,4 +1,6 @@
 import time
+import argparse
+import json
 from concurrent import futures
 
 import grpc
@@ -9,80 +11,90 @@ from pos import POSServicer
 from role import Role
 
 
+# --------------------------------------------------
+# CLI arguments
+# --------------------------------------------------
+def parse_args():
+    parser = argparse.ArgumentParser(description="Start a POS node")
+    parser.add_argument(
+        "--id",
+        required=True,
+        help="Node ID (e.g. POS1)"
+    )
+    return parser.parse_args()
+
+
+# --------------------------------------------------
+# Main entry point
+# --------------------------------------------------
 def main():
-    # Initialize the deposits (databases)
-    deposit1 = Deposit(database_path="db/db1.json")  
-    deposit2 = Deposit(database_path="db/db2.json")  
-    deposit3 = Deposit(database_path="db/db3.json")  
+    args = parse_args()
+    node_id = args.id
 
-    # Cluster configuration
-    peers = {
-        "POS1": ("localhost", 50051),
-        "POS2": ("localhost", 50052),
-        "POS3": ("localhost", 50053),
-    }
+    # Load cluster configuration
+    with open("config.json") as f:
+        cluster = json.load(f)
 
-    # Define the leader (for now, POS1 is the leader)
-    leader_address = peers["POS1"]
+    if node_id not in cluster:
+        raise ValueError(f"Unknown node id {node_id}")
 
-    # Create POS nodes
-    node_1 = POSServicer(
-        deposit=deposit1,
-        node_id="POS1",
-        role=Role.LEADER,  # POS1 is the leader
-        peers=[peers["POS2"], peers["POS3"]],
-        host="localhost",
-        port=50051,
-        leader_node=leader_address  # Leader knows itself
-    )
-    
-    node_2 = POSServicer(
-        deposit=deposit2,
-        node_id="POS2",
-        role=Role.FOLLOWER,  # POS2 is a follower
-        peers=[peers["POS1"], peers["POS3"]],
-        host="localhost",
-        port=50052,
-        leader_node=leader_address  # Follower knows who the leader is
-    )
-    
-    node_3 = POSServicer(
-        deposit=deposit3,
-        node_id="POS3",
-        role=Role.FOLLOWER,  # POS3 is a follower
-        peers=[peers["POS1"], peers["POS2"]],
-        host="localhost",
-        port=50053,
-        leader_node=leader_address  # Follower knows who the leader is
+    node_cfg = cluster[node_id]
+
+    host = node_cfg["host"]
+    port = node_cfg["port"]
+    db_path = node_cfg["db"]
+    role = (
+        Role.LEADER
+        if node_cfg["role"] == "leader"
+        else Role.FOLLOWER
     )
 
-    # Start 3 servers, each on different ports
-    server1 = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    pos_service_pb2_grpc.add_POSServicer_to_server(node_1, server1)
-    server1.add_insecure_port("[::]:50051")
-    server1.start()
-    print("gRPC server started on port 50051 (POS1 - LEADER)")
+    # Create deposit (node-local state)
+    deposit = Deposit(database_path=db_path)
 
-    server2 = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    pos_service_pb2_grpc.add_POSServicer_to_server(node_2, server2)
-    server2.add_insecure_port("[::]:50052")
-    server2.start()
-    print("gRPC server started on port 50052 (POS2 - FOLLOWER)")
+    # Find leader address
+    leader_address = None
+    for cfg in cluster.values():
+        if cfg["role"] == "leader":
+            leader_address = (cfg["host"], cfg["port"])
+            break
 
-    server3 = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    pos_service_pb2_grpc.add_POSServicer_to_server(node_3, server3)
-    server3.add_insecure_port("[::]:50053")
-    server3.start()
-    print("gRPC server started on port 50053 (POS3 - FOLLOWER)")
+    # All peers except myself
+    peers = [
+        (cfg["host"], cfg["port"])
+        for nid, cfg in cluster.items()
+        if nid != node_id
+    ]
+
+    # Create POS node
+    node = POSServicer(
+        deposit=deposit,
+        node_id=node_id,
+        role=role,
+        peers=peers,
+        host=host,
+        port=port,
+        leader_node=leader_address,
+    )
+
+    # Start gRPC server
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    pos_service_pb2_grpc.add_POSServicer_to_server(node, server)
+    server.add_insecure_port(f"[::]:{port}")
+    server.start()
+
+    # IMPORTANT: start background tasks (heartbeats)
+    node.start()
+
+    print(f"gRPC server started on port {port} ({node_id} - {role.name})")
 
     try:
         while True:
-            time.sleep(86400)  # Keep all servers running
+            time.sleep(86400)
     except KeyboardInterrupt:
-        print("\nShutting down servers...")
-        server1.stop(0)
-        server2.stop(0)
-        server3.stop(0)
+        print(f"\nShutting down {node_id}...")
+        node.stop()
+        server.stop(0)
 
 
 if __name__ == "__main__":

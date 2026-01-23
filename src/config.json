@@ -1,0 +1,21 @@
+{
+    "POS1": {
+      "host": "localhost",
+      "port": 50051,
+      "db": "db/db1.json",
+      "role": "leader"
+    },
+    "POS2": {
+      "host": "localhost",
+      "port": 50052,
+      "db": "db/db2.json",
+      "role": "follower"
+    },
+    "POS3": {
+      "host": "localhost",
+      "port": 50053,
+      "db": "db/db3.json",
+      "role": "follower"
+    }
+  }
+  

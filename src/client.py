@@ -119,7 +119,7 @@ def test_all_nodes_see_same_price():
     print("\n[2] Updating price to $9 via leader...")
     channel = grpc.insecure_channel("localhost:50051")
     stub = pos_service_pb2_grpc.POSStub(channel)
-    update_request = UpdateProductPriceRequest(product_id=1, new_price=9)
+    update_request = UpdateProductPriceRequest(product_id=1, new_price=25)
     update_response = stub.UpdateProductPrice(update_request)
     print(f"   {update_response.message}")
     channel.close()
@@ -140,8 +140,8 @@ def run():
     try:
         # test_price_operations()
         # test_forward_to_leader()
-        test_all_nodes_see_same_price()
-        # test_buy_product()
+        # test_all_nodes_see_same_price()
+        test_buy_product()
         
         print("\n" + "=" * 60)
         print("All tests completed!")

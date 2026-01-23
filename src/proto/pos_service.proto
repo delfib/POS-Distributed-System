@@ -12,6 +12,8 @@ service POS {
   rpc PrepareUpdatePrice (PrepareUpdatePriceRequest) returns (PrepareUpdatePriceResponse);
   rpc CommitUpdatePrice (CommitUpdatePriceRequest) returns (CommitUpdatePriceResponse);
   rpc AbortUpdatePrice (AbortUpdatePriceRequest) returns (AbortUpdatePriceResponse);
+
+  rpc SendHeartbeat (HeartbeatRequest) returns (HeartbeatResponse);
 }
 
 message GetProductPriceRequest {
@@ -81,4 +83,13 @@ message AbortUpdatePriceRequest {
 
 message AbortUpdatePriceResponse {
   bool success = 1;
+}
+
+message HeartbeatRequest {
+  string leader_id = 1;  
+}
+
+message HeartbeatResponse {
+  bool success = 1;
+  string follower_id = 2;
 }
