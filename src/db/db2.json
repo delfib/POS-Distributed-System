@@ -3,7 +3,7 @@
         "id": 1,
         "name": "Apple",
         "price": 25.0,
-        "quantity": 0,
+        "quantity": 2,
         "version": 11
     },
     "2": {
