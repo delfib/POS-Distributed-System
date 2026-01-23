@@ -3,6 +3,7 @@ import threading
 import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from deposit import Deposit
 from heartbeat import HeartbeatManager
+from product_service import ProductService
 from proto.pos_service_pb2 import (
     AbortUpdatePriceRequest,
     AbortUpdatePriceResponse,
@@ -13,7 +14,6 @@ from proto.pos_service_pb2 import (
     HeartbeatResponse,
     PrepareUpdatePriceRequest,
     PrepareUpdatePriceResponse,
-    RequestStockRequest,
     RequestStockResponse,
     UpdateProductPriceResponse,
 )
@@ -48,6 +48,11 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
             peers=peers,
         )
 
+        self.product_service = ProductService(
+            deposit=deposit,
+            peers=peers,
+        )
+
     def start(self):
         self.heartbeat_manager.start()
 
@@ -67,13 +72,9 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         self.heartbeat_manager.receive_heartbeat(request.leader_id)
         return HeartbeatResponse(success=True)
 
-    # --------------------------------------------------
-    # Product logic
-    # --------------------------------------------------
-
     def GetProductPrice(self, request, context):
         """RPC to get product price"""
-        product = self.deposit.get_product(request.product_id)
+        product = self.product_service.get_product_price(request.product_id)
         if product is None:
             return GetProductPriceResponse(message="Product not found")
         return GetProductPriceResponse(
@@ -82,54 +83,18 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
 
     def BuyProduct(self, request, context):
         """RPC to buy a product, coordinating with peers if needed"""
-        product_id = request.product_id
-        requested_qty = request.quantity
-
-        product = self.deposit.get_product(product_id)
-        if product is None:
-            return BuyProductResponse(
-                success=False, quantity_sold=0, message="Product not found"
-            )
-
-        remaining = self.deposit.sell_product(product_id, requested_qty)
-
-        if remaining > 0:
-            for peer_host, peer_port in self.peers:
-                if remaining <= 0:
-                    break
-
-                success, response = RPCCaller.execute_rpc_call(
-                    peer_host,
-                    peer_port,
-                    "RequestStock",
-                    RequestStockRequest(product_id=product_id, quantity=remaining),
-                    timeout=5.0,
-                )
-
-                if success and response:
-                    remaining -= response.quantity_provided
-
-        total_sold = requested_qty - remaining
-        if total_sold > 0:
-            message = f"Successfully sold {total_sold} units"
-            return BuyProductResponse(
-                success=True, quantity_sold=total_sold, message=message
-            )
-        else:
-            return BuyProductResponse(
-                success=False,
-                quantity_sold=0,
-                message="Product not available in any node",
-            )
+        success, quantity_sold, message = self.product_service.buy_product(
+            request.product_id, request.quantity
+        )
+        return BuyProductResponse(
+            success=success, quantity_sold=quantity_sold, message=message
+        )
 
     def RequestStock(self, request, context):
         """RPC called by peers to request stock from this node"""
-        product_id = request.product_id
-        requested_qty = request.quantity
-
-        remaining = self.deposit.sell_product(product_id, requested_qty)
-        provided = requested_qty - remaining
-
+        provided = self.product_service.request_stock(
+            request.product_id, request.quantity
+        )
         return RequestStockResponse(quantity_provided=provided)
 
     def UpdateProductPrice(self, request, context):
