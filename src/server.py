@@ -1,6 +1,6 @@
-import time
 import argparse
 import json
+import time
 from concurrent import futures
 
 import grpc
@@ -16,11 +16,7 @@ from role import Role
 # --------------------------------------------------
 def parse_args():
     parser = argparse.ArgumentParser(description="Start a POS node")
-    parser.add_argument(
-        "--id",
-        required=True,
-        help="Node ID (e.g. POS1)"
-    )
+    parser.add_argument("--id", required=True, help="Node ID (e.g. POS1)")
     return parser.parse_args()
 
 
@@ -32,7 +28,7 @@ def main():
     node_id = args.id
 
     # Load cluster configuration
-    with open("config.json") as f:
+    with open("src/config.json") as f:
         cluster = json.load(f)
 
     if node_id not in cluster:
@@ -43,11 +39,7 @@ def main():
     host = node_cfg["host"]
     port = node_cfg["port"]
     db_path = node_cfg["db"]
-    role = (
-        Role.LEADER
-        if node_cfg["role"] == "leader"
-        else Role.FOLLOWER
-    )
+    role = Role.LEADER if node_cfg["role"] == "leader" else Role.FOLLOWER
 
     # Create deposit (node-local state)
     deposit = Deposit(database_path=db_path)
@@ -61,9 +53,7 @@ def main():
 
     # All peers except myself
     peers = [
-        (cfg["host"], cfg["port"])
-        for nid, cfg in cluster.items()
-        if nid != node_id
+        (cfg["host"], cfg["port"]) for nid, cfg in cluster.items() if nid != node_id
     ]
 
     # Create POS node
