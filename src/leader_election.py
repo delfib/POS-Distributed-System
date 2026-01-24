@@ -1,6 +1,10 @@
 import threading
+import time
 from rpc_caller import RPCCaller
 from proto.pos_service_pb2 import ElectionRequest
+
+# Time to wait for a higher node to declare itself leader
+ELECTION_TIMEOUT = 5.0
 
 class LeaderElectionManager:
     """
@@ -13,6 +17,7 @@ class LeaderElectionManager:
 
         self._lock = threading.Lock()
         self._election_in_progress = False
+        self._received_elected = False  # Flag to track if we received an Elected message
 
 
     def start_election(self):
@@ -23,6 +28,7 @@ class LeaderElectionManager:
             if self._election_in_progress:
                 return
             self._election_in_progress = True
+            self._received_elected = False
 
         print(f"[{self.node_id}] Starting Bully election")
 
@@ -31,21 +37,37 @@ class LeaderElectionManager:
         got_response = False
 
         for peer_id, peer_host, peer_port in higher_peers:
-            success, _ = RPCCaller.execute_rpc_call(
+            success, response = RPCCaller.execute_rpc_call(
                 peer_host,
                 peer_port,
                 "Election",
                 ElectionRequest(initiatior=self.node_id),
                 timeout=3.0,
             )
-            if success:
-                got_response = True 
+            if success and response and response.success:
+                got_response = True
 
         if not got_response:
             # No higher peer answered, declares itself as the leader
             self._become_leader()
         else:
-            print(f"[{self.node_id}] Higher node exists, waiting for election result")
+            # Wait for the higher node to complete its election and send Elected
+            print(f"[{self.node_id}] Higher node exists, waiting for Elected message...")
+            start_time = time.time()
+            while time.time() - start_time < ELECTION_TIMEOUT:
+                with self._lock:
+                    if self._received_elected:
+                        print(f"[{self.node_id}] Received Elected, election complete")
+                        self._election_in_progress = False
+                        return
+                time.sleep(0.5)
+            
+            # Timeout: higher node failed to become leader, retry election
+            print(f"[{self.node_id}] Timeout waiting for Elected, retrying election")
+            with self._lock:
+                self._election_in_progress = False
+            self.start_election()
+            return
 
         with self._lock:
             self._election_in_progress = False
@@ -66,6 +88,15 @@ class LeaderElectionManager:
             return True
 
         return False
+
+    def on_elected(self):
+        """
+        Called when this node receives an Elected message.
+        Signals that a higher node has become leader.
+        """
+        with self._lock:
+            self._received_elected = True
+            self._election_in_progress = False
 
     def _get_higher_peers(self):
         """

@@ -94,23 +94,33 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         )
 
     def Elected(self, request, context):
-        self.role = Role.FOLLOWER   # just in case but shouldn't be necessary
+        print(f"[{self.node_id}] Received Elected from new leader {request.new_leader_id}")
+        self.role = Role.FOLLOWER
         self.leader_node = (request.new_leader_host, request.new_leader_port)
-        self.heartbeat_manager.restart(self.role)   # restart heartbeat threads
+        self.leader_election_manager.on_elected()  # Signal election manager
+        self.heartbeat_manager.restart(self.role)  # restart heartbeat threads
         return ElectedResponse(success=True)
 
     def _on_leader_elected(self, new_leader_id):  
+        print(f"[{self.node_id}] Becoming the new leader")
         self.role = Role.LEADER
-        self.heartbeat_manager.restart(self.role) # restart heartbeat threads
         
+        # First broadcast Elected to all peers BEFORE starting heartbeats
         for peer_id, host, port in self.peers:
             RPCCaller.execute_rpc_call(
                 host,
                 port,
                 "Elected",
-                ElectedRequest(new_leader_id=self.node_id),
+                ElectedRequest(
+                    new_leader_id=self.node_id,
+                    new_leader_host=self.host,
+                    new_leader_port=self.port
+                ),
                 timeout=3.0,
             )
+        
+        # Now start sending heartbeats as leader
+        self.heartbeat_manager.restart(self.role)
 
     def GetProductPrice(self, request, context):
         """RPC to get product price"""

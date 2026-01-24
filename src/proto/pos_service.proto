@@ -108,7 +108,7 @@ message ElectionResponse {
 
 message ElectedRequest {
   int32 new_leader_id = 1;
-  int32 new_leader_host = 2;
+  string new_leader_host = 2;
   int32 new_leader_port = 3;
 }
 

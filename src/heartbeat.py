@@ -3,6 +3,8 @@ import threading
 import time
 from typing import List, Tuple
 
+import grpc
+
 from proto.pos_service_pb2 import HeartbeatRequest
 from role import Role
 from rpc_caller import RPCCaller
@@ -34,6 +36,9 @@ class HeartbeatManager:
         self.heartbeat_timeout = self._random_timeout()
         self.running = False
 
+        self._lock = threading.Lock()
+        self._current_thread = None
+
     def _is_leader(self) -> bool:
         return self.role == Role.LEADER
 
@@ -42,25 +47,38 @@ class HeartbeatManager:
 
     def start(self):
         """Initiates the heartbeat threads according to the node's role."""
-        if self.running:
-            return
+        with self._lock:
+            if self.running:
+                return
 
-        self.running = True
+            self.running = True
 
-        if self._is_leader():
-            threading.Thread(target=self._sender_loop, daemon=True).start()
-        else:
-            threading.Thread(target=self._watcher_loop, daemon=True).start()
+            if self._is_leader():
+                self._current_thread = threading.Thread(target=self._sender_loop, daemon=True)
+            else:
+                self._current_thread = threading.Thread(target=self._watcher_loop, daemon=True)
+            
+            self._current_thread.start()
 
     def stop(self):
-        """Stops the heartbeat threads."""
-        self.running = False
+        """Stops the heartbeat threads and waits for them to finish."""
+        with self._lock:
+            self.running = False
+            thread = self._current_thread
+            self._current_thread = None
+        
+        # Wait for thread to finish (outside lock to prevent deadlock)
+        # Don't join if we're being called from the thread itself
+        if thread and thread.is_alive() and thread != threading.current_thread():
+            thread.join(timeout=2.0)
 
     def restart(self, new_role: Role):
+        """Safely restarts heartbeat with a new role."""
         self.stop()
-        self.role = new_role
-        self.last_heartbeat_time = time.time()
-        self.heartbeat_timeout = self._random_timeout()
+        with self._lock:
+            self.role = new_role
+            self.last_heartbeat_time = time.time()
+            self.heartbeat_timeout = self._random_timeout()
         self.start()
 
     def receive_heartbeat(self, leader_id: str):
@@ -74,16 +92,23 @@ class HeartbeatManager:
 
     def _sender_loop(self):
         """Periodically sends heartbeats to all the peers."""
-        while self.running:
+        while self.running and self._is_leader():
             for peer_id, peer_host, peer_port in self.peers:
-                RPCCaller.execute_rpc_call(
-                    peer_host,
-                    peer_port,
-                    "SendHeartbeat",
-                    HeartbeatRequest(leader_id=self.node_id),
-                    timeout=2.0,
-                )
-            print(f"[{self.node_id} ({self.role})] Sending heartbeats...")
+                if not self.running or not self._is_leader():
+                    break
+                try:
+                    RPCCaller.execute_rpc_call(
+                        peer_host,
+                        peer_port,
+                        "SendHeartbeat",
+                        HeartbeatRequest(leader_id=self.node_id),
+                        timeout=2.0,
+                    )
+                except Exception as e:
+                    print(f"[{self.node_id}] Failed to send heartbeat to {peer_id}: {e}")
+            
+            if self.running and self._is_leader():
+                print(f"[{self.node_id} ({self.role})] Sending heartbeats...")
             time.sleep(HEARTBEAT_INTERVAL)
 
     def _watcher_loop(self):
