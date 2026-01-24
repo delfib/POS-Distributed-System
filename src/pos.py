@@ -4,6 +4,9 @@ import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from deposit import Deposit
 from heartbeat import HeartbeatManager
 from product_service import ProductService
+from role import Role
+from rpc_caller import RPCCaller
+from leader_election import LeaderElectionManager
 from proto.pos_service_pb2 import (
     AbortUpdatePriceRequest,
     AbortUpdatePriceResponse,
@@ -16,11 +19,10 @@ from proto.pos_service_pb2 import (
     PrepareUpdatePriceResponse,
     RequestStockResponse,
     UpdateProductPriceResponse,
+    ElectionResponse,
+    ElectedResponse,
+    ElectedRequest
 )
-from role import Role
-from rpc_caller import RPCCaller
-
-
 class POSServicer(pos_service_pb2_grpc.POSServicer):
     def __init__(
         self,
@@ -35,7 +37,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         self.deposit = deposit
         self.node_id = node_id
         self.role = role  # Set the role as passed (LEADER or FOLLOWER)
-        self.peers = peers  # List of peers to notify
+        self.peers = peers  # List of peers to notify [(peer_id, host, port)]
         self.host = host  # Host where the node is running (IP or hostname)
         self.port = port  # Port where the node is running
         self.leader_node = leader_node  # (host, port)
@@ -46,11 +48,18 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
             node_id=node_id,
             role=role,
             peers=peers,
+            on_leader_failure=self._on_leader_failure,
         )
 
         self.product_service = ProductService(
             deposit=deposit,
             peers=peers,
+        )
+
+        self.leader_election_manager = LeaderElectionManager(
+            node_id=node_id,
+            peers=peers,
+            on_leader_elected=self._on_leader_elected,
         )
 
     def start(self):
@@ -71,6 +80,47 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
     def SendHeartbeat(self, request, context):
         self.heartbeat_manager.receive_heartbeat(request.leader_id)
         return HeartbeatResponse(success=True)
+
+    def _on_leader_failure(self):
+        print(f"[{self.node_id}] Starting leader election")
+        self.heartbeat_manager.stop()
+        self.leader_election_manager.start_election()
+
+    def Election(self, request, context):
+        should_reply = self.leader_election_manager.on_election(request.initiatior)
+        return ElectionResponse(
+            success=should_reply,
+            peer_id=self.node_id if should_reply else "",
+        )
+
+    def Elected(self, request, context):
+        print(f"[{self.node_id}] Received Elected from new leader {request.new_leader_id}")
+        self.role = Role.FOLLOWER
+        self.leader_node = (request.new_leader_host, request.new_leader_port)
+        self.leader_election_manager.on_elected()  # Signal election manager
+        self.heartbeat_manager.restart(self.role)  # restart heartbeat threads
+        return ElectedResponse(success=True)
+
+    def _on_leader_elected(self, new_leader_id):  
+        print(f"[{self.node_id}] Becoming the new leader")
+        self.role = Role.LEADER
+        
+        # First broadcast Elected to all peers BEFORE starting heartbeats
+        for peer_id, host, port in self.peers:
+            RPCCaller.execute_rpc_call(
+                host,
+                port,
+                "Elected",
+                ElectedRequest(
+                    new_leader_id=self.node_id,
+                    new_leader_host=self.host,
+                    new_leader_port=self.port
+                ),
+                timeout=3.0,
+            )
+        
+        # Now start sending heartbeats as leader
+        self.heartbeat_manager.restart(self.role)
 
     def GetProductPrice(self, request, context):
         """RPC to get product price"""
@@ -155,7 +205,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
             return False
 
         all_ready = True
-        for peer_host, peer_port in self.peers:
+        for peer_id, peer_host, peer_port in self.peers:
             success, response = RPCCaller.execute_rpc_call(
                 peer_host,
                 peer_port,
@@ -183,7 +233,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         """Commit the transaction on all nodes"""
         self.deposit.commit_price_change(transaction_id)
 
-        for peer_host, peer_port in self.peers:
+        for peer_id, peer_host, peer_port in self.peers:
             RPCCaller.execute_rpc_call(
                 peer_host,
                 peer_port,
@@ -196,7 +246,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         """Abort the transaction on all nodes"""
         self.deposit.abort_price_change(transaction_id)
 
-        for peer_host, peer_port in self.peers:
+        for peer_id, peer_host, peer_port in self.peers:
             RPCCaller.execute_rpc_call(
                 peer_host,
                 peer_port,

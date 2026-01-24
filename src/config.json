@@ -1,21 +1,25 @@
 {
-    "POS1": {
+  "nodes": [
+    {
+      "id": 1,
       "host": "localhost",
       "port": 50051,
       "db": "src/db/db1.json",
       "role": "leader"
     },
-    "POS2": {
+    {
+      "id": 2,
       "host": "localhost",
       "port": 50052,
       "db": "src/db/db2.json",
       "role": "follower"
     },
-    "POS3": {
+    {
+      "id": 3,
       "host": "localhost",
       "port": 50053,
       "db": "src/db/db3.json",
       "role": "follower"
     }
-  }
-  
+  ]
+}
