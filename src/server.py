@@ -16,7 +16,7 @@ from role import Role
 # --------------------------------------------------
 def parse_args():
     parser = argparse.ArgumentParser(description="Start a POS node")
-    parser.add_argument("--id", required=True, help="Node ID (e.g. POS1)")
+    parser.add_argument("--id", type=int, required=True, help="Node ID (e.g. 1)")
     return parser.parse_args()
 
 
@@ -29,12 +29,14 @@ def main():
 
     # Load cluster configuration
     with open("src/config.json") as f:
-        cluster = json.load(f)
+        config = json.load(f)
 
-    if node_id not in cluster:
+    nodes = config["nodes"]
+
+    # Find my node config
+    node_cfg = next((n for n in nodes if n["id"] == node_id), None)
+    if node_cfg is None:
         raise ValueError(f"Unknown node id {node_id}")
-
-    node_cfg = cluster[node_id]
 
     host = node_cfg["host"]
     port = node_cfg["port"]
@@ -45,15 +47,18 @@ def main():
     deposit = Deposit(database_path=db_path)
 
     # Find leader address
-    leader_address = None
-    for cfg in cluster.values():
-        if cfg["role"] == "leader":
-            leader_address = (cfg["host"], cfg["port"])
-            break
+    leader_cfg = next((n for n in nodes if n["role"] == "leader"), None)
+    leader_address = (
+        (leader_cfg["host"], leader_cfg["port"])
+        if leader_cfg is not None
+        else None
+    )
 
-    # All peers except myself
+    # All peers except myself (id, host, port)
     peers = [
-        (cfg["host"], cfg["port"]) for nid, cfg in cluster.items() if nid != node_id
+        (n["id"], n["host"], n["port"])
+        for n in nodes
+        if n["id"] != node_id
     ]
 
     # Create POS node
@@ -73,16 +78,16 @@ def main():
     server.add_insecure_port(f"[::]:{port}")
     server.start()
 
-    # IMPORTANT: start background tasks (heartbeats)
+    # Start background tasks (heartbeats, etc.)
     node.start()
 
-    print(f"gRPC server started on port {port} ({node_id} - {role.name})")
+    print(f"gRPC server started on port {port} (node {node_id} - {role.name})")
 
     try:
         while True:
             time.sleep(86400)
     except KeyboardInterrupt:
-        print(f"\nShutting down {node_id}...")
+        print(f"\nShutting down node {node_id}...")
         node.stop()
         server.stop(0)
 

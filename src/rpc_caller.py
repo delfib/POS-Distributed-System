@@ -1,8 +1,6 @@
 import grpc
 
 from proto import pos_service_pb2_grpc
-
-
 class RPCCaller:
     @staticmethod
     def execute_rpc_call(
@@ -19,5 +17,8 @@ class RPCCaller:
             channel.close()
             return True, response
         except grpc.RpcError as e:
-            print(f"Failed to contact {peer_host}:{peer_port}: {e}")
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                print(f"[RPC] Peer {peer_host}:{peer_port} is unavailable.")
+            else:
+                print(f"[RPC] RPC call to {peer_host}:{peer_port} failed: {e}")
             return False, None

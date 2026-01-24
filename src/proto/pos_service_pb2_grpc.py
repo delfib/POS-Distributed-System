@@ -79,6 +79,16 @@ class POSStub(object):
                 request_serializer=proto_dot_pos__service__pb2.HeartbeatRequest.SerializeToString,
                 response_deserializer=proto_dot_pos__service__pb2.HeartbeatResponse.FromString,
                 _registered_method=True)
+        self.Election = channel.unary_unary(
+                '/pos.POS/Election',
+                request_serializer=proto_dot_pos__service__pb2.ElectionRequest.SerializeToString,
+                response_deserializer=proto_dot_pos__service__pb2.ElectionResponse.FromString,
+                _registered_method=True)
+        self.Elected = channel.unary_unary(
+                '/pos.POS/Elected',
+                request_serializer=proto_dot_pos__service__pb2.ElectedRequest.SerializeToString,
+                response_deserializer=proto_dot_pos__service__pb2.ElectedResponse.FromString,
+                _registered_method=True)
 
 
 class POSServicer(object):
@@ -138,6 +148,18 @@ class POSServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Election(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Elected(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_POSServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -185,6 +207,16 @@ def add_POSServicer_to_server(servicer, server):
                     servicer.SendHeartbeat,
                     request_deserializer=proto_dot_pos__service__pb2.HeartbeatRequest.FromString,
                     response_serializer=proto_dot_pos__service__pb2.HeartbeatResponse.SerializeToString,
+            ),
+            'Election': grpc.unary_unary_rpc_method_handler(
+                    servicer.Election,
+                    request_deserializer=proto_dot_pos__service__pb2.ElectionRequest.FromString,
+                    response_serializer=proto_dot_pos__service__pb2.ElectionResponse.SerializeToString,
+            ),
+            'Elected': grpc.unary_unary_rpc_method_handler(
+                    servicer.Elected,
+                    request_deserializer=proto_dot_pos__service__pb2.ElectedRequest.FromString,
+                    response_serializer=proto_dot_pos__service__pb2.ElectedResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -430,6 +462,60 @@ class POS(object):
             '/pos.POS/SendHeartbeat',
             proto_dot_pos__service__pb2.HeartbeatRequest.SerializeToString,
             proto_dot_pos__service__pb2.HeartbeatResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Election(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pos.POS/Election',
+            proto_dot_pos__service__pb2.ElectionRequest.SerializeToString,
+            proto_dot_pos__service__pb2.ElectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Elected(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pos.POS/Elected',
+            proto_dot_pos__service__pb2.ElectedRequest.SerializeToString,
+            proto_dot_pos__service__pb2.ElectedResponse.FromString,
             options,
             channel_credentials,
             insecure,

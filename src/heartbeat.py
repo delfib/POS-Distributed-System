@@ -11,24 +11,24 @@ HEARTBEAT_INTERVAL = 2.0  # how often leader sends heartbeats
 HEARTBEAT_TIMEOUT_MIN = 5.0  # follower minimum wait time
 HEARTBEAT_TIMEOUT_MAX = 10.0  # follower maximum wait time
 
-
 class HeartbeatManager:
     """
-    Gestiona la lógica de heartbeats para un nodo distribuido.
+    Handles the heartbeat logic for a node.
 
-    - Si es LEADER: envía heartbeats periódicos a los followers
-    - Si es FOLLOWER: monitorea heartbeats del leader y detecta fallas
+    - If the node is the LEADER: periodically sends heartbeats to followers
+    - If the node is a FOLLOWER: monitors leader heartbeats and detects leader failure
     """
-
     def __init__(
         self,
         node_id: str,
         role: Role,
         peers: List[Tuple[str, int]],
+        on_leader_failure: callable
     ):
         self.node_id = node_id
         self.role = role
         self.peers = peers
+        self.on_leader_failure = on_leader_failure
 
         self.last_heartbeat_time = time.time()
         self.heartbeat_timeout = self._random_timeout()
@@ -41,7 +41,7 @@ class HeartbeatManager:
         return random.uniform(HEARTBEAT_TIMEOUT_MIN, HEARTBEAT_TIMEOUT_MAX)
 
     def start(self):
-        """Inicia los threads de heartbeat según el rol del nodo."""
+        """Initiates the heartbeat threads according to the node's role."""
         if self.running:
             return
 
@@ -53,45 +53,47 @@ class HeartbeatManager:
             threading.Thread(target=self._watcher_loop, daemon=True).start()
 
     def stop(self):
-        """Detiene los threads de heartbeat."""
+        """Stops the heartbeat threads."""
         self.running = False
 
+    def restart(self, new_role: Role):
+        self.stop()
+        self.role = new_role
+        self.last_heartbeat_time = time.time()
+        self.heartbeat_timeout = self._random_timeout()
+        self.start()
+
     def receive_heartbeat(self, leader_id: str):
-        """Llamado cuando se recibe un heartbeat del leader."""
+        """
+        Handles an incoming heartbeat from the current leader.
+        Updates the last heartbeat timestamp and resets the timeout.
+        """
         print(f"[{self.node_id} ({self.role})] Heartbeat received from {leader_id}")
         self.last_heartbeat_time = time.time()
         self.heartbeat_timeout = self._random_timeout()
 
     def _sender_loop(self):
-        """Loop del leader: envía heartbeats periódicamente a todos los peers."""
+        """Periodically sends heartbeats to all the peers."""
         while self.running:
-            for peer_host, peer_port in self.peers:
-                self._send_heartbeat_to_peer(peer_host, peer_port)
-
+            for peer_id, peer_host, peer_port in self.peers:
+                RPCCaller.execute_rpc_call(
+                    peer_host,
+                    peer_port,
+                    "SendHeartbeat",
+                    HeartbeatRequest(leader_id=self.node_id),
+                    timeout=2.0,
+                )
             print(f"[{self.node_id} ({self.role})] Sending heartbeats...")
             time.sleep(HEARTBEAT_INTERVAL)
 
     def _watcher_loop(self):
-        """Loop del follower: detecta si el leader dejó de enviar heartbeats."""
+        """Detects if the leader stoped sending heartbeats."""
         while self.running:
             time_elapsed = time.time() - self.last_heartbeat_time
 
             if time_elapsed > self.heartbeat_timeout:
                 print(f"[{self.node_id}] Leader heartbeat missed")
-                self._on_leader_failure()
+                self.on_leader_failure()
                 return
 
             time.sleep(0.5)
-
-    def _send_heartbeat_to_peer(self, peer_host: str, peer_port: int):
-        """Envía un heartbeat a un peer específico."""
-        RPCCaller.execute_rpc_call(
-            peer_host,
-            peer_port,
-            "SendHeartbeat",
-            HeartbeatRequest(leader_id=self.node_id),
-            timeout=2.0,
-        )
-
-    def _on_leader_failure(self):
-        print(f"[{self.node_id}] Starting leader election (later)")
