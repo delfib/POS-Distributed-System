@@ -20,14 +20,17 @@ def parse_args():
     return parser.parse_args()
 
 
-# --------------------------------------------------
-# Main entry point
-# --------------------------------------------------
-def main():
-    args = parse_args()
-    node_id = args.id
+def server_setup(node):
 
-    # Load cluster configuration
+    # Start gRPC server
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    pos_service_pb2_grpc.add_POSServicer_to_server(node, server)
+    server.add_insecure_port(f"[::]:{node.port}")
+
+    return server
+
+def node_setup(node_id):
+
     with open("src/config.json") as f:
         config = json.load(f)
 
@@ -37,7 +40,7 @@ def main():
     node_cfg = next((n for n in nodes if n["id"] == node_id), None)
     if node_cfg is None:
         raise ValueError(f"Unknown node id {node_id}")
-
+    
     host = node_cfg["host"]
     port = node_cfg["port"]
     db_path = node_cfg["db"]
@@ -46,15 +49,6 @@ def main():
     # Create deposit (node-local state)
     deposit = Deposit(database_path=db_path)
 
-    # Find leader address
-    leader_cfg = next((n for n in nodes if n["role"] == "leader"), None)
-    leader_address = (
-        (leader_cfg["host"], leader_cfg["port"])
-        if leader_cfg is not None
-        else None
-    )
-
-    # All peers except myself (id, host, port)
     peers = [
         (n["id"], n["host"], n["port"])
         for n in nodes
@@ -69,19 +63,23 @@ def main():
         peers=peers,
         host=host,
         port=port,
-        leader_node=leader_address,
+        leader_node=None,
     )
 
-    # Start gRPC server
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    pos_service_pb2_grpc.add_POSServicer_to_server(node, server)
-    server.add_insecure_port(f"[::]:{port}")
+    return node
+
+def main():
+    args = parse_args()
+    node_id = args.id
+
+    node = node_setup(node_id)
+
+    server = server_setup(node)
     server.start()
 
-    # Start background tasks (heartbeats, etc.)
     node.start()
 
-    print(f"gRPC server started on port {port} (node {node_id} - {role.name})")
+    print(f"gRPC server started on port {node.port} (node {node_id} - {node.role.name})")
 
     try:
         while True:
