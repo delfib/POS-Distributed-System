@@ -16,7 +16,10 @@ service POS {
   rpc SendHeartbeat (HeartbeatRequest) returns (HeartbeatResponse);
 
   rpc Election (ElectionRequest) returns (ElectionResponse);
-  rpc Elected (ElectedRequest) returns (ElectedResponse);  
+  rpc Elected (ElectedRequest) returns (ElectedResponse);
+
+  // Development/Testing: Reload database from disk
+  rpc ReloadDatabase (ReloadDatabaseRequest) returns (ReloadDatabaseResponse);
 }
 
 message GetProductPriceRequest {
@@ -114,4 +117,12 @@ message ElectedRequest {
 
 message ElectedResponse {
   bool success = 1;
+}
+
+message ReloadDatabaseRequest {
+}
+
+message ReloadDatabaseResponse {
+  bool success = 1;
+  string message = 2;
 }
