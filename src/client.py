@@ -34,9 +34,6 @@ def products_list():
 
     products = []
 
-    print("\n" + "=" * 60)
-    print("PRODUCTS\n")
-
     with open(db_path) as f:
         data = json.load(f)
 
@@ -47,47 +44,53 @@ def products_list():
 
     products.sort()
 
-    for item in products:
-        print(item[0],"- "+item[1])
-
-    # print("=" * 60)
-
     return products
     
 def operation(products, stub):
-    print("\n" + "=" * 60)
-    print("OPERATIONS")
-    print("1 - GET")
-    print("2 - BUY")
-    print("3 - UPDATE\n")
-
-    user_operation = input("$ ")
     
-    if user_operation == '1':
-        user_product_id = int(input("Product ID: "))
-        request = GetProductPriceRequest(product_id=user_product_id) 
-        response = stub.GetProductPrice(request)
-        print(f"\nResultado: ${response.price}")
+    while True:
+        print("\n" + "=" * 60)
         
-    elif user_operation == '2':
+        print("PRODUCTS\n")
+        for item in products:
+            print(item[0],"- "+item[1])
         
-        user_product_id = int(input("Product ID to buy: "))
-        request = BuyProductRequest(product_id=user_product_id)
-        response = stub.BuyProduct(request)
-        print(f"Compra realizada: {response.success}")
+        print("\n"+"OPERATIONS")
+        print("1 - GET")
+        print("2 - BUY")
+        print("3 - UPDATE\n")
 
-    elif user_operation == '3':
-        # Ejemplo para UPDATE
-        user_product_id = int(input("Product ID: "))
-        new_price = float(input("New Price: "))
-        request = UpdateProductPriceRequest(product_id=user_product_id, new_price=new_price)
-        response = stub.UpdateProductPrice(request)
-        print("Precio actualizado correctamente.")
-        
-    else:
-        print('OPCIÓN NO VÁLIDA') 
+        selected_operation = input("$ ")
+
+        if selected_operation == '1' :
+            selected_product_id = int(input("Product ID: "))
+            request = GetProductPriceRequest(product_id=selected_product_id) 
+            response = stub.GetProductPrice(request)
+            # TODO: cambiar print
+            print(f"\nResultado: ${response.price}")
+            
+        elif selected_operation == '2':
+            
+            selected_product_id = int(input("Product ID to buy: "))
+            quantity_product = int(input("Quantity: "))
+            request = BuyProductRequest(product_id=selected_product_id, quantity=quantity_product)
+            response = stub.BuyProduct(request)
+            # TODO: cambiar print
+            print(f"Compra realizada: {response.success}")
+
+        elif selected_operation == '3':
+            selected_product_id = int(input("Product ID: "))
+            new_price = float(input("New Price: "))
+            request = UpdateProductPriceRequest(product_id=selected_product_id, new_price=new_price)
+            response = stub.UpdateProductPrice(request)
+            # TODO: cambiar print
+            print("Precio actualizado correctamente.")
+            
+        else:
+            # TODO: cambiar print
+            break
        
-    print("=" * 60)
+        print("=" * 60)
 
 
 def run():
@@ -100,14 +103,7 @@ def run():
         products = products_list()
         
         operation(products, stub)
-
        
-
-            
-        print("\n" + "=" * 60)
-        
-        print("=" * 60)
-
     except grpc.RpcError as e:
         print(f"\nError: {e}")
         print("Make sure all servers are running!")
