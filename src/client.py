@@ -1,5 +1,6 @@
 import grpc
 import json
+import time
 
 import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from proto.pos_service_pb2 import (
@@ -47,6 +48,11 @@ def products_list():
     return products
     
 def operation(products, stub):
+
+    products_ids = []
+
+    for id in products:
+        products_ids.append(id[0])
     
     while True:
         print("\n" + "=" * 60)
@@ -56,40 +62,63 @@ def operation(products, stub):
             print(item[0],"- "+item[1])
         
         print("\n"+"OPERATIONS")
-        print("1 - GET")
-        print("2 - BUY")
-        print("3 - UPDATE\n")
+        print("1 - SHOW PRODUCT PRICE")
+        print("2 - BUY PRODUCT")
+        print("3 - UPDATE PRODUCT\n")
 
         selected_operation = input("$ ")
 
-        if selected_operation == '1' :
-            selected_product_id = int(input("Product ID: "))
-            request = GetProductPriceRequest(product_id=selected_product_id) 
-            response = stub.GetProductPrice(request)
-            # TODO: cambiar print
-            print(f"\nResultado: ${response.price}")
-            
-        elif selected_operation == '2':
-            
-            selected_product_id = int(input("Product ID to buy: "))
-            quantity_product = int(input("Quantity: "))
-            request = BuyProductRequest(product_id=selected_product_id, quantity=quantity_product)
-            response = stub.BuyProduct(request)
-            # TODO: cambiar print
-            print(f"Compra realizada: {response.success}")
+        match selected_operation:
 
-        elif selected_operation == '3':
-            selected_product_id = int(input("Product ID: "))
-            new_price = float(input("New Price: "))
-            request = UpdateProductPriceRequest(product_id=selected_product_id, new_price=new_price)
-            response = stub.UpdateProductPrice(request)
-            # TODO: cambiar print
-            print("Precio actualizado correctamente.")
-            
-        else:
-            # TODO: cambiar print
-            break
-       
+            case '1' :
+                selected_product_id = int(input("Product ID: "))
+
+                if not selected_product_id in products_ids:
+                    raise ValueError(f"Unknown product id {selected_product_id}")
+                
+                request = GetProductPriceRequest(product_id=selected_product_id) 
+                response = stub.GetProductPrice(request)
+                
+                # TODO: cambiar print
+                print(f"\nPrice: ${response.price}")
+                
+            case '2':
+                
+                selected_product_id = int(input("Product ID to buy: "))
+
+                if not selected_product_id in products_ids:
+                    raise ValueError(f"Unknown product id {selected_product_id}")
+
+                quantity_product = int(input("Quantity: "))
+                request = BuyProductRequest(product_id=selected_product_id, quantity=quantity_product)
+                response = stub.BuyProduct(request)
+                # TODO: cambiar print
+                if response.success:
+                    print(f"Purchase made: {response.success}")
+                else:
+                    print("Error")
+
+            case '3':
+                selected_product_id = int(input("Product ID: "))
+
+                if not selected_product_id in products_ids:
+                    raise ValueError(f"Unknown product id {selected_product_id}")
+
+                new_price = float(input("New Price: "))
+                request = UpdateProductPriceRequest(product_id=selected_product_id, new_price=new_price)
+                response = stub.UpdateProductPrice(request)
+                # TODO: cambiar print
+                if response.success:
+                    print("Price updated.")
+                else:
+                    print("Error")
+
+            case _:
+                # TODO: cambiar print
+                raise ValueError(f"Unknown operation {selected_operation}")
+
+        time.sleep(3)
+        
         print("=" * 60)
 
 
@@ -98,7 +127,7 @@ def run():
 
         stub = None
         while stub is None:
-            stub = connect() # Recibimos el stub aquí
+            stub = connect()
 
         products = products_list()
         
