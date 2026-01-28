@@ -94,7 +94,7 @@ class ProductService:
         if all_ready:
             return True
         else:
-            self._abort_phase(transaction_id)
+            self._abort_price_update(transaction_id)
             return False
         
     
