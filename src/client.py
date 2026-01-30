@@ -4,6 +4,7 @@ import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from proto.pos_service_pb2 import (
     BuyProductRequest,
     GetProductPriceRequest,
+    ReloadDatabaseRequest,
     UpdateProductPriceRequest,
 )
 
@@ -92,6 +93,35 @@ def test_buy_product():
     channel.close()
 
 
+def reload_all_databases():
+    """Reload database from disk on all nodes.
+
+    Useful for development/testing when JSON files are modified manually.
+    """
+    print("\n" + "=" * 60)
+    print("Reloading Databases on All Nodes")
+    print("=" * 60)
+
+    nodes = [
+        ("POS1", "localhost", 50051),
+        ("POS2", "localhost", 50052),
+        ("POS3", "localhost", 50053),
+    ]
+
+    for node_name, host, port in nodes:
+        try:
+            channel = grpc.insecure_channel(f"{host}:{port}")
+            stub = pos_service_pb2_grpc.POSStub(channel)
+
+            request = ReloadDatabaseRequest()
+            response = stub.ReloadDatabase(request)
+            print(f"   {node_name}: {response.message}")
+
+            channel.close()
+        except grpc.RpcError as e:
+            print(f"   {node_name}: Failed to reload - {e.code().name}")
+
+
 def test_all_nodes_see_same_price():
     """Verify all nodes have the same price after update"""
     print("\n" + "=" * 60)
@@ -138,6 +168,7 @@ def test_all_nodes_see_same_price():
 
 def run():
     try:
+        reload_all_databases()
         # test_price_operations()
         # test_forward_to_leader()
         # test_all_nodes_see_same_price()

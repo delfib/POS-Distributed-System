@@ -3,23 +3,26 @@ import threading
 import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from deposit import Deposit
 from heartbeat import HeartbeatManager
-from product_service import ProductService
-from role import Role
-from rpc_caller import RPCCaller
 from leader_election import LeaderElectionManager
+from product_service import ProductService
 from proto.pos_service_pb2 import (
     AbortUpdatePriceResponse,
     BuyProductResponse,
     CommitUpdatePriceResponse,
+    ElectedRequest,
+    ElectedResponse,
+    ElectionResponse,
     GetProductPriceResponse,
     HeartbeatResponse,
     PrepareUpdatePriceResponse,
+    ReloadDatabaseResponse,
     RequestStockResponse,
     UpdateProductPriceResponse,
-    ElectionResponse,
-    ElectedResponse,
-    ElectedRequest
 )
+from role import Role
+from rpc_caller import RPCCaller
+
+
 class POSServicer(pos_service_pb2_grpc.POSServicer):
     def __init__(
         self,
@@ -91,17 +94,19 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         )
 
     def Elected(self, request, context):
-        print(f"[{self.node_id}] Received Elected from new leader {request.new_leader_id}")
+        print(
+            f"[{self.node_id}] Received Elected from new leader {request.new_leader_id}"
+        )
         self.role = Role.FOLLOWER
         self.leader_node = (request.new_leader_host, request.new_leader_port)
         self.leader_election_manager.on_elected()  # Signal election manager
         self.heartbeat_manager.restart(self.role)  # restart heartbeat threads
         return ElectedResponse(success=True)
 
-    def _on_leader_elected(self, new_leader_id):  
+    def _on_leader_elected(self, new_leader_id):
         print(f"[{self.node_id}] Becoming the new leader")
         self.role = Role.LEADER
-        
+
         # First broadcast Elected to all peers BEFORE starting heartbeats
         for _, host, port in self.peers:
             RPCCaller.execute_rpc_call(
@@ -111,11 +116,11 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
                 ElectedRequest(
                     new_leader_id=self.node_id,
                     new_leader_host=self.host,
-                    new_leader_port=self.port
+                    new_leader_port=self.port,
                 ),
                 timeout=3.0,
             )
-        
+
         # Now start sending heartbeats as leader
         self.heartbeat_manager.restart(self.role)
 
@@ -209,3 +214,19 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         return AbortUpdatePriceResponse(
             success=self.deposit.abort_price_change(request.transaction_id)
         )
+
+    def ReloadDatabase(self, request, context):
+        """
+        RPC to reload the database from disk.
+        Useful for development/testing when JSON files are modified manually.
+        """
+        success = self.deposit.reload_database()
+        if success:
+            print(f"[{self.node_id}] Database reloaded from disk")
+            return ReloadDatabaseResponse(
+                success=True, message="Database reloaded successfully from disk"
+            )
+        else:
+            return ReloadDatabaseResponse(
+                success=False, message="Failed to reload database"
+            )
