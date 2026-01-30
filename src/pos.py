@@ -3,26 +3,26 @@ import threading
 import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from deposit import Deposit
 from heartbeat import HeartbeatManager
-from product_service import ProductService
-from role import Role
-from rpc_caller import RPCCaller
 from leader_election import LeaderElectionManager
+from product_service import ProductService
 from proto.pos_service_pb2 import (
-    AbortUpdatePriceRequest,
     AbortUpdatePriceResponse,
     BuyProductResponse,
-    CommitUpdatePriceRequest,
     CommitUpdatePriceResponse,
+    ElectedRequest,
+    ElectedResponse,
+    ElectionResponse,
     GetProductPriceResponse,
     HeartbeatResponse,
-    PrepareUpdatePriceRequest,
     PrepareUpdatePriceResponse,
+    ReloadDatabaseResponse,
     RequestStockResponse,
     UpdateProductPriceResponse,
-    ElectionResponse,
-    ElectedResponse,
-    ElectedRequest
 )
+from role import Role
+from rpc_caller import RPCCaller
+
+
 class POSServicer(pos_service_pb2_grpc.POSServicer):
     def __init__(
         self,
@@ -94,19 +94,21 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         )
 
     def Elected(self, request, context):
-        print(f"[{self.node_id}] Received Elected from new leader {request.new_leader_id}")
+        print(
+            f"[{self.node_id}] Received Elected from new leader {request.new_leader_id}"
+        )
         self.role = Role.FOLLOWER
         self.leader_node = (request.new_leader_host, request.new_leader_port)
         self.leader_election_manager.on_elected()  # Signal election manager
         self.heartbeat_manager.restart(self.role)  # restart heartbeat threads
         return ElectedResponse(success=True)
 
-    def _on_leader_elected(self, new_leader_id):  
+    def _on_leader_elected(self, new_leader_id):
         print(f"[{self.node_id}] Becoming the new leader")
         self.role = Role.LEADER
-        
+
         # First broadcast Elected to all peers BEFORE starting heartbeats
-        for peer_id, host, port in self.peers:
+        for _, host, port in self.peers:
             RPCCaller.execute_rpc_call(
                 host,
                 port,
@@ -114,17 +116,17 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
                 ElectedRequest(
                     new_leader_id=self.node_id,
                     new_leader_host=self.host,
-                    new_leader_port=self.port
+                    new_leader_port=self.port,
                 ),
                 timeout=3.0,
             )
-        
+
         # Now start sending heartbeats as leader
         self.heartbeat_manager.restart(self.role)
 
     def GetProductPrice(self, request, context):
         """RPC to get product price"""
-        product = self.product_service.get_product_price(request.product_id)
+        product = self.product_service.get_product(request.product_id)
         if product is None:
             return GetProductPriceResponse(message="Product not found")
         return GetProductPriceResponse(
@@ -155,15 +157,13 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         transaction_id = self._generate_transaction_id()
 
         # Phase 1: Prepare
-        if not self._prepare_phase(
-            transaction_id, request.product_id, request.new_price
-        ):
+        if not self.product_service._prepare_price_update(transaction_id, request.product_id, request.new_price):
             return UpdateProductPriceResponse(
                 success=False, message="Transaction aborted."
             )
 
         # Phase 2: Commit
-        self._commit_phase(transaction_id)
+        self.product_service._commit_price_update(transaction_id)
 
         return UpdateProductPriceResponse(
             success=True,
@@ -193,68 +193,6 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
                 success=False, message="Failed to contact leader."
             )
 
-    def _prepare_phase(
-        self, transaction_id: str, product_id: int, new_price: float
-    ) -> bool:
-        """Prepares all nodes to commit. Returns True if all nodes are ready, False otherwise."""
-        product = self.deposit.get_product(product_id)
-        new_version = product.version + 1
-        if not self.deposit.prepare_price_change(
-            transaction_id, product_id, new_price, new_version
-        ):
-            return False
-
-        all_ready = True
-        for peer_id, peer_host, peer_port in self.peers:
-            success, response = RPCCaller.execute_rpc_call(
-                peer_host,
-                peer_port,
-                "PrepareUpdatePrice",
-                PrepareUpdatePriceRequest(
-                    product_id=product_id,
-                    new_price=new_price,
-                    transaction_id=transaction_id,
-                    version=new_version,
-                ),
-                timeout=5.0,
-            )
-
-            if not success or not response or not response.ready:
-                all_ready = False
-                # break
-
-        if all_ready:
-            return True
-        else:
-            self._abort_phase(transaction_id)
-            return False
-
-    def _commit_phase(self, transaction_id: str):
-        """Commit the transaction on all nodes"""
-        self.deposit.commit_price_change(transaction_id)
-
-        for peer_id, peer_host, peer_port in self.peers:
-            RPCCaller.execute_rpc_call(
-                peer_host,
-                peer_port,
-                "CommitUpdatePrice",
-                CommitUpdatePriceRequest(transaction_id=transaction_id),
-                timeout=5.0,
-            )
-
-    def _abort_phase(self, transaction_id: str):
-        """Abort the transaction on all nodes"""
-        self.deposit.abort_price_change(transaction_id)
-
-        for peer_id, peer_host, peer_port in self.peers:
-            RPCCaller.execute_rpc_call(
-                peer_host,
-                peer_port,
-                "AbortUpdatePrice",
-                AbortUpdatePriceRequest(transaction_id=transaction_id),
-                timeout=5.0,
-            )
-
     def PrepareUpdatePrice(self, request, context):
         """Phase 1: Prepare to update price"""
         ready = self.deposit.prepare_price_change(
@@ -268,15 +206,27 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         return PrepareUpdatePriceResponse(ready=ready, message=message)
 
     def CommitUpdatePrice(self, request, context):
-        """Phase 2: Commit the price update"""
-        transaction_id = request.transaction_id
-
-        success = self.deposit.commit_price_change(transaction_id)
-        return CommitUpdatePriceResponse(success=success)
+        return CommitUpdatePriceResponse(
+            success=self.deposit.commit_price_change(request.transaction_id)
+        )
 
     def AbortUpdatePrice(self, request, context):
-        """Phase 2: Abort the price update"""
-        transaction_id = request.transaction_id
+        return AbortUpdatePriceResponse(
+            success=self.deposit.abort_price_change(request.transaction_id)
+        )
 
-        success = self.deposit.abort_price_change(transaction_id)
-        return AbortUpdatePriceResponse(success=success)
+    def ReloadDatabase(self, request, context):
+        """
+        RPC to reload the database from disk.
+        Useful for development/testing when JSON files are modified manually.
+        """
+        success = self.deposit.reload_database()
+        if success:
+            print(f"[{self.node_id}] Database reloaded from disk")
+            return ReloadDatabaseResponse(
+                success=True, message="Database reloaded successfully from disk"
+            )
+        else:
+            return ReloadDatabaseResponse(
+                success=False, message="Failed to reload database"
+            )

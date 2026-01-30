@@ -18,10 +18,17 @@ Compile the GRPC (?)
 
 ## Run tool
 
-```py
-python3 src/server.py
+### Run all the nodes at the same time
+```
+./start_pos.sh
 ```
 
+### Run each node individually
+```py
+python3 src/server.py --id node-number
+```
+
+### Run the client 
 ```py
 python3 src/client.py
 ```
