@@ -89,6 +89,11 @@ class POSStub(object):
                 request_serializer=proto_dot_pos__service__pb2.ElectedRequest.SerializeToString,
                 response_deserializer=proto_dot_pos__service__pb2.ElectedResponse.FromString,
                 _registered_method=True)
+        self.ReloadDatabase = channel.unary_unary(
+                '/pos.POS/ReloadDatabase',
+                request_serializer=proto_dot_pos__service__pb2.ReloadDatabaseRequest.SerializeToString,
+                response_deserializer=proto_dot_pos__service__pb2.ReloadDatabaseResponse.FromString,
+                _registered_method=True)
 
 
 class POSServicer(object):
@@ -160,6 +165,13 @@ class POSServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ReloadDatabase(self, request, context):
+        """Development/Testing: Reload database from disk
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_POSServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -217,6 +229,11 @@ def add_POSServicer_to_server(servicer, server):
                     servicer.Elected,
                     request_deserializer=proto_dot_pos__service__pb2.ElectedRequest.FromString,
                     response_serializer=proto_dot_pos__service__pb2.ElectedResponse.SerializeToString,
+            ),
+            'ReloadDatabase': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReloadDatabase,
+                    request_deserializer=proto_dot_pos__service__pb2.ReloadDatabaseRequest.FromString,
+                    response_serializer=proto_dot_pos__service__pb2.ReloadDatabaseResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -516,6 +533,33 @@ class POS(object):
             '/pos.POS/Elected',
             proto_dot_pos__service__pb2.ElectedRequest.SerializeToString,
             proto_dot_pos__service__pb2.ElectedResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReloadDatabase(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/pos.POS/ReloadDatabase',
+            proto_dot_pos__service__pb2.ReloadDatabaseRequest.SerializeToString,
+            proto_dot_pos__service__pb2.ReloadDatabaseResponse.FromString,
             options,
             channel_credentials,
             insecure,

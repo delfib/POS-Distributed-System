@@ -20,6 +20,19 @@ class Deposit:
         self._lock = threading.Lock()
         self._pending_transactions: Dict[str, Dict] = {}
 
+    def reload_database(self) -> bool:
+        """
+        Reloads the database from disk.
+        Useful for development/testing when JSON files are modified manually.
+        """
+        with self._lock:
+            try:
+                self._items = self._load_products(self.database_path)
+                return True
+            except Exception as e:
+                print(f"Error reloading database: {e}")
+                return False
+
     def _load_products(self, database_path: str):
         with open(database_path) as f:
             data = json.load(f)

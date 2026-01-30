@@ -44,16 +44,19 @@ def node_setup(node_id):
     host = node_cfg["host"]
     port = node_cfg["port"]
     db_path = node_cfg["db"]
-    role = Role.LEADER if node_cfg["role"] == "leader" else Role.FOLLOWER
 
     # Create deposit (node-local state)
     deposit = Deposit(database_path=db_path)
 
-    peers = [
-        (n["id"], n["host"], n["port"])
-        for n in nodes
-        if n["id"] != node_id
-    ]
+    # All peers except myself (id, host, port)
+    peers = [(n["id"], n["host"], n["port"]) for n in nodes if n["id"] != node_id]
+
+    # Always start as FOLLOWER
+    # - If there's an active leader, we'll receive heartbeats and stay as follower
+    # - If there's no leader, heartbeat timeout will trigger an election
+    # This allows nodes to rejoin the cluster without causing leader conflicts
+    role = Role.FOLLOWER
+    leader_address = None  # Will be set when we receive heartbeat or win election
 
     # Create POS node
     node = POSServicer(

@@ -1,13 +1,13 @@
 from typing import List, Tuple
 
 from deposit import Deposit
-from proto.pos_service_pb2 import RequestStockRequest
+from proto.pos_service_pb2 import RequestStockRequest, PrepareUpdatePriceRequest, AbortUpdatePriceRequest, CommitUpdatePriceRequest
 from rpc_caller import RPCCaller
 
 
 class ProductService:
     """
-    Manages product-related logic: price queries, purchases, and stock updates. #TODO
+    Manages product-related logic: purchases and stock updates.
     """
 
     def __init__(
@@ -18,8 +18,8 @@ class ProductService:
         self.deposit = deposit
         self.peers = peers
 
-    def get_product_price(self, product_id: int):
-        """Gets the price of a product."""
+    def get_product(self, product_id: int):
+        """Gets a product by its id."""
         return self.deposit.get_product(product_id)
 
     def buy_product(self, product_id: int, requested_qty: int) -> Tuple[bool, int, str]:
@@ -60,3 +60,67 @@ class ProductService:
                 remaining -= response.quantity_provided
 
         return remaining
+    
+    def _prepare_price_update(
+        self, transaction_id: str, product_id: int, new_price: float
+    ) -> bool:
+        """Prepares all nodes to commit. Returns True if all nodes are ready, False otherwise."""
+        product = self.deposit.get_product(product_id)
+        new_version = product.version + 1
+        if not self.deposit.prepare_price_change(
+            transaction_id, product_id, new_price, new_version
+        ):
+            return False
+
+        all_ready = True
+        for peer_id, peer_host, peer_port in self.peers:
+            success, response = RPCCaller.execute_rpc_call(
+                peer_host,
+                peer_port,
+                "PrepareUpdatePrice",
+                PrepareUpdatePriceRequest(
+                    product_id=product_id,
+                    new_price=new_price,
+                    transaction_id=transaction_id,
+                    version=new_version,
+                ),
+                timeout=5.0,
+            )
+
+            if not success or not response or not response.ready:
+                all_ready = False
+                # break
+
+        if all_ready:
+            return True
+        else:
+            self._abort_price_update(transaction_id)
+            return False
+        
+    
+
+    def _commit_price_update(self, transaction_id: str):
+        """Commit the transaction on all nodes"""
+        self.deposit.commit_price_change(transaction_id)
+
+        for peer_id, peer_host, peer_port in self.peers:
+            RPCCaller.execute_rpc_call(
+                peer_host,
+                peer_port,
+                "CommitUpdatePrice",
+                CommitUpdatePriceRequest(transaction_id=transaction_id),
+                timeout=5.0,
+            )
+
+    def _abort_price_update(self, transaction_id: str):
+        """Abort the transaction on all nodes"""
+        self.deposit.abort_price_change(transaction_id)
+
+        for peer_id, peer_host, peer_port in self.peers:
+            RPCCaller.execute_rpc_call(
+                peer_host,
+                peer_port,
+                "AbortUpdatePrice",
+                AbortUpdatePriceRequest(transaction_id=transaction_id),
+                timeout=5.0,
+            )

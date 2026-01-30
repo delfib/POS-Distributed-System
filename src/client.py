@@ -1,101 +1,138 @@
+import json
+import time
+
 import grpc
 
 import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from proto.pos_service_pb2 import (
     BuyProductRequest,
     GetProductPriceRequest,
+    ReloadDatabaseRequest,
     UpdateProductPriceRequest,
 )
 
-
-def test_price_operations():
-    """Test getting and updating product prices"""
-    print("=" * 60)
-    print("Testing Price Operations")
-    print("=" * 60)
-
-    # Connect to POS1 (the leader)
-    channel = grpc.insecure_channel("localhost:50051")
-    stub = pos_service_pb2_grpc.POSStub(channel)
-
-    # Get current price
-    print("\n[1] Getting current price of product 1...")
-    request = GetProductPriceRequest(product_id=1)
-    response = stub.GetProductPrice(request)
-
-    if response.message:
-        print(f"   Error: {response.message}")
-    else:
-        print(f"   Product {response.product_id} - {response.name}: ${response.price}")
-
-    # Update price (as leader)
-    print("\n[2] Updating price of product 1 to $25 (via leader - POS1)...")
-    update_request = UpdateProductPriceRequest(product_id=1, new_price=25)
-    update_response = stub.UpdateProductPrice(update_request)
-
-    print(f"   Success: {update_response.success}")
-    print(f"   Message: {update_response.message}")
-
-    # Verify price was updated
-    print("\n[3] Verifying price was updated...")
-    response = stub.GetProductPrice(request)
-    print(f"   Product {response.product_id} - {response.name}: ${response.price}")
-
-    channel.close()
+db_path = ""
 
 
-def test_forward_to_leader():
-    """Test forwarding price update from follower to leader"""
+def connect():
+    global db_path
+
+    with open("src/config.json") as f:
+        config = json.load(f)
+        nodes = config["nodes"]
+
+        for n in nodes:
+            print("node " + str(n["id"]) + " (" + n["role"] + ")")
+
+        nodo_select = int(input("Select a node:"))
+        for n in nodes:
+            if nodo_select == n["id"]:
+                print(n)
+                db_path = n["db"]
+                channel = grpc.insecure_channel(f"{n['host']}:{n['port']}")
+                return pos_service_pb2_grpc.POSStub(channel)  # Retornamos el objeto
+    return None
+
+
+def products_list():
+    products = []
+
+    with open(db_path) as f:
+        data = json.load(f)
+
+        # print(type(data))
+        for item in data:
+            product = (data[item]["id"], data[item]["name"])
+            products.append(product)
+
+    products.sort()
+
+    return products
+
+
+def operation(products, stub):
+    products_ids = []
+
+    for id in products:
+        products_ids.append(id[0])
+
+    while True:
+        print("\n" + "=" * 60)
+
+        print("PRODUCTS\n")
+        for item in products:
+            print(item[0], "- " + item[1])
+
+        print("\n" + "OPERATIONS")
+        print("1 - SHOW PRODUCT PRICE")
+        print("2 - BUY PRODUCT")
+        print("3 - UPDATE PRODUCT\n")
+
+        selected_operation = input("$ ")
+
+        match selected_operation:
+            case "1":
+                selected_product_id = int(input("Product ID: "))
+
+                if selected_product_id not in products_ids:
+                    raise ValueError(f"Unknown product id {selected_product_id}")
+
+                request = GetProductPriceRequest(product_id=selected_product_id)
+                response = stub.GetProductPrice(request)
+
+                # TODO: cambiar print
+                print(f"\nPrice: ${response.price}")
+
+            case "2":
+                selected_product_id = int(input("Product ID to buy: "))
+
+                if selected_product_id not in products_ids:
+                    raise ValueError(f"Unknown product id {selected_product_id}")
+
+                quantity_product = int(input("Quantity: "))
+                request = BuyProductRequest(
+                    product_id=selected_product_id, quantity=quantity_product
+                )
+                response = stub.BuyProduct(request)
+                # TODO: cambiar print
+                if response.success:
+                    print(f"Purchase made: {response.success}")
+                else:
+                    print("Error")
+
+            case "3":
+                selected_product_id = int(input("Product ID: "))
+
+                if selected_product_id not in products_ids:
+                    raise ValueError(f"Unknown product id {selected_product_id}")
+
+                new_price = float(input("New Price: "))
+                request = UpdateProductPriceRequest(
+                    product_id=selected_product_id, new_price=new_price
+                )
+                response = stub.UpdateProductPrice(request)
+                # TODO: cambiar print
+                if response.success:
+                    print("Price updated.")
+                else:
+                    print("Error")
+
+            case _:
+                # TODO: cambiar print
+                raise ValueError(f"Unknown operation {selected_operation}")
+
+        time.sleep(3)
+
+        print("=" * 60)
+
+
+def reload_all_databases():
+    """Reload database from disk on all nodes.
+
+    Useful for development/testing when JSON files are modified manually.
+    """
     print("\n" + "=" * 60)
-    print("Testing Forward to Leader")
-    print("=" * 60)
-
-    # Connect to POS2 (a follower)
-    channel = grpc.insecure_channel("localhost:50052")
-    stub = pos_service_pb2_grpc.POSStub(channel)
-
-    print("\n[1] Requesting price update via follower (POS2)...")
-    print("   (This should be forwarded to the leader)")
-
-    update_request = UpdateProductPriceRequest(product_id=1, new_price=9)
-    update_response = stub.UpdateProductPrice(update_request)
-
-    print(f"   Success: {update_response.success}")
-    print(f"   Message: {update_response.message}")
-
-    # Verify on the follower itself
-    print("\n[2] Verifying price on follower (POS2)...")
-    price_request = GetProductPriceRequest(product_id=1)
-    response = stub.GetProductPrice(price_request)
-    print(f"   Product {response.product_id} - {response.name}: ${response.price}")
-
-    channel.close()
-
-
-def test_buy_product():
-    """Test buying products"""
-    print("\n" + "=" * 60)
-    print("Testing Buy Product")
-    print("=" * 60)
-
-    channel = grpc.insecure_channel("localhost:50051")
-    stub = pos_service_pb2_grpc.POSStub(channel)
-
-    print("\n[1] Attempting to buy 5 units of product 1...")
-    buy_request = BuyProductRequest(product_id=1, quantity=5)
-    buy_response = stub.BuyProduct(buy_request)
-
-    print(f"   Success: {buy_response.success}")
-    print(f"   Quantity sold: {buy_response.quantity_sold}")
-    print(f"   Message: {buy_response.message}")
-
-    channel.close()
-
-
-def test_all_nodes_see_same_price():
-    """Verify all nodes have the same price after update"""
-    print("\n" + "=" * 60)
-    print("Testing Price Consistency Across All Nodes")
+    print("Reloading Databases on All Nodes")
     print("=" * 60)
 
     nodes = [
@@ -104,48 +141,29 @@ def test_all_nodes_see_same_price():
         ("POS3", "localhost", 50053),
     ]
 
-    print("\n[1] Checking price on all nodes before update...")
     for node_name, host, port in nodes:
-        channel = grpc.insecure_channel(f"{host}:{port}")
-        stub = pos_service_pb2_grpc.POSStub(channel)
+        try:
+            channel = grpc.insecure_channel(f"{host}:{port}")
+            stub = pos_service_pb2_grpc.POSStub(channel)
 
-        request = GetProductPriceRequest(product_id=1)
-        response = stub.GetProductPrice(request)
-        print(f"   {node_name}: ${response.price}")
+            request = ReloadDatabaseRequest()
+            response = stub.ReloadDatabase(request)
+            print(f"   {node_name}: {response.message}")
 
-        channel.close()
-
-    # Update price via leader
-    print("\n[2] Updating price to $9 via leader...")
-    channel = grpc.insecure_channel("localhost:50051")
-    stub = pos_service_pb2_grpc.POSStub(channel)
-    update_request = UpdateProductPriceRequest(product_id=1, new_price=25)
-    update_response = stub.UpdateProductPrice(update_request)
-    print(f"   {update_response.message}")
-    channel.close()
-
-    print("\n[3] Checking price on all nodes after update...")
-    for node_name, host, port in nodes:
-        channel = grpc.insecure_channel(f"{host}:{port}")
-        stub = pos_service_pb2_grpc.POSStub(channel)
-
-        request = GetProductPriceRequest(product_id=1)
-        response = stub.GetProductPrice(request)
-        print(f"   {node_name}: ${response.price}")
-
-        channel.close()
+            channel.close()
+        except grpc.RpcError as e:
+            print(f"   {node_name}: Failed to reload - {e.code().name}")
 
 
 def run():
     try:
-        # test_price_operations()
-        # test_forward_to_leader()
-        # test_all_nodes_see_same_price()
-        test_buy_product()
+        stub = None
+        while stub is None:
+            stub = connect()
 
-        print("\n" + "=" * 60)
-        print("All tests completed!")
-        print("=" * 60)
+        products = products_list()
+
+        operation(products, stub)
 
     except grpc.RpcError as e:
         print(f"\nError: {e}")
