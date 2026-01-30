@@ -1,18 +1,20 @@
-import grpc
 import json
 import time
+
+import grpc
 
 import proto.pos_service_pb2_grpc as pos_service_pb2_grpc
 from proto.pos_service_pb2 import (
     BuyProductRequest,
     GetProductPriceRequest,
+    ReloadDatabaseRequest,
     UpdateProductPriceRequest,
 )
 
-db_path = ''
+db_path = ""
+
 
 def connect():
-    
     global db_path
 
     with open("src/config.json") as f:
@@ -20,19 +22,19 @@ def connect():
         nodes = config["nodes"]
 
         for n in nodes:
-            print("node " + str(n["id"]) +" ("+ n["role"] + ")")
+            print("node " + str(n["id"]) + " (" + n["role"] + ")")
 
         nodo_select = int(input("Select a node:"))
         for n in nodes:
             if nodo_select == n["id"]:
                 print(n)
                 db_path = n["db"]
-                channel = grpc.insecure_channel(f"{n["host"]}:{n["port"]}")
-                return pos_service_pb2_grpc.POSStub(channel) # Retornamos el objeto
+                channel = grpc.insecure_channel(f"{n['host']}:{n['port']}")
+                return pos_service_pb2_grpc.POSStub(channel)  # Retornamos el objeto
     return None
-    
-def products_list():
 
+
+def products_list():
     products = []
 
     with open(db_path) as f:
@@ -46,22 +48,22 @@ def products_list():
     products.sort()
 
     return products
-    
-def operation(products, stub):
 
+
+def operation(products, stub):
     products_ids = []
 
     for id in products:
         products_ids.append(id[0])
-    
+
     while True:
         print("\n" + "=" * 60)
-        
+
         print("PRODUCTS\n")
         for item in products:
-            print(item[0],"- "+item[1])
-        
-        print("\n"+"OPERATIONS")
+            print(item[0], "- " + item[1])
+
+        print("\n" + "OPERATIONS")
         print("1 - SHOW PRODUCT PRICE")
         print("2 - BUY PRODUCT")
         print("3 - UPDATE PRODUCT\n")
@@ -69,28 +71,28 @@ def operation(products, stub):
         selected_operation = input("$ ")
 
         match selected_operation:
-
-            case '1' :
+            case "1":
                 selected_product_id = int(input("Product ID: "))
 
-                if not selected_product_id in products_ids:
+                if selected_product_id not in products_ids:
                     raise ValueError(f"Unknown product id {selected_product_id}")
-                
-                request = GetProductPriceRequest(product_id=selected_product_id) 
+
+                request = GetProductPriceRequest(product_id=selected_product_id)
                 response = stub.GetProductPrice(request)
-                
+
                 # TODO: cambiar print
                 print(f"\nPrice: ${response.price}")
-                
-            case '2':
-                
+
+            case "2":
                 selected_product_id = int(input("Product ID to buy: "))
 
-                if not selected_product_id in products_ids:
+                if selected_product_id not in products_ids:
                     raise ValueError(f"Unknown product id {selected_product_id}")
 
                 quantity_product = int(input("Quantity: "))
-                request = BuyProductRequest(product_id=selected_product_id, quantity=quantity_product)
+                request = BuyProductRequest(
+                    product_id=selected_product_id, quantity=quantity_product
+                )
                 response = stub.BuyProduct(request)
                 # TODO: cambiar print
                 if response.success:
@@ -98,14 +100,16 @@ def operation(products, stub):
                 else:
                     print("Error")
 
-            case '3':
+            case "3":
                 selected_product_id = int(input("Product ID: "))
 
-                if not selected_product_id in products_ids:
+                if selected_product_id not in products_ids:
                     raise ValueError(f"Unknown product id {selected_product_id}")
 
                 new_price = float(input("New Price: "))
-                request = UpdateProductPriceRequest(product_id=selected_product_id, new_price=new_price)
+                request = UpdateProductPriceRequest(
+                    product_id=selected_product_id, new_price=new_price
+                )
                 response = stub.UpdateProductPrice(request)
                 # TODO: cambiar print
                 if response.success:
@@ -118,21 +122,49 @@ def operation(products, stub):
                 raise ValueError(f"Unknown operation {selected_operation}")
 
         time.sleep(3)
-        
+
         print("=" * 60)
+
+
+def reload_all_databases():
+    """Reload database from disk on all nodes.
+
+    Useful for development/testing when JSON files are modified manually.
+    """
+    print("\n" + "=" * 60)
+    print("Reloading Databases on All Nodes")
+    print("=" * 60)
+
+    nodes = [
+        ("POS1", "localhost", 50051),
+        ("POS2", "localhost", 50052),
+        ("POS3", "localhost", 50053),
+    ]
+
+    for node_name, host, port in nodes:
+        try:
+            channel = grpc.insecure_channel(f"{host}:{port}")
+            stub = pos_service_pb2_grpc.POSStub(channel)
+
+            request = ReloadDatabaseRequest()
+            response = stub.ReloadDatabase(request)
+            print(f"   {node_name}: {response.message}")
+
+            channel.close()
+        except grpc.RpcError as e:
+            print(f"   {node_name}: Failed to reload - {e.code().name}")
 
 
 def run():
     try:
-
         stub = None
         while stub is None:
             stub = connect()
 
         products = products_list()
-        
+
         operation(products, stub)
-       
+
     except grpc.RpcError as e:
         print(f"\nError: {e}")
         print("Make sure all servers are running!")
