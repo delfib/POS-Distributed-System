@@ -1,0 +1,76 @@
+services:
+  pos1:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: pos1
+    hostname: pos1
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./src/db/db1.json:/app/src/db/db1.json
+    environment:
+      - NODE_ID=1
+      - CONFIG_FILE=/app/src/config.docker.json
+      - PYTHONUNBUFFERED=1
+    networks:
+      - pos-network
+    command: ["python", "src/server.py", "--id", "1"]
+
+  pos2:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: pos2
+    hostname: pos2
+    ports:
+      - "50052:50052"
+    volumes:
+      - ./src/db/db2.json:/app/src/db/db2.json
+    environment:
+      - NODE_ID=2
+      - CONFIG_FILE=/app/src/config.docker.json
+      - PYTHONUNBUFFERED=1
+    networks:
+      - pos-network
+    command: ["python", "src/server.py", "--id", "2"]
+    depends_on:
+      - pos1
+
+  pos3:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: pos3
+    hostname: pos3
+    ports:
+      - "50053:50053"
+    volumes:
+      - ./src/db/db3.json:/app/src/db/db3.json
+    environment:
+      - NODE_ID=3
+      - CONFIG_FILE=/app/src/config.docker.json
+      - PYTHONUNBUFFERED=1
+    networks:
+      - pos-network
+    command: ["python", "src/server.py", "--id", "3"]
+    depends_on:
+      - pos1
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    container_name: pos-client
+    stdin_open: true
+    tty: true
+    networks:
+      - pos-network
+    environment:
+      - CONFIG_FILE=/app/src/config.docker.json
+      - PYTHONUNBUFFERED=1
+    command: ["python", "src/client.py"]
+
+networks:
+  pos-network:
+    driver: bridge

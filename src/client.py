@@ -1,4 +1,5 @@
 import json
+import os
 import time
 
 import grpc
@@ -17,7 +18,8 @@ db_path = ""
 def connect():
     global db_path
 
-    with open("src/config.json") as f:
+    config_file = os.getenv("CONFIG_FILE", "src/config.json")
+    with open(config_file) as f:
         config = json.load(f)
         nodes = config["nodes"]
 

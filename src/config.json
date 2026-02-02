@@ -2,21 +2,21 @@
   "nodes": [
     {
       "id": 1,
-      "host": "localhost",
+      "host": "192.168.0.99",
       "port": 50051,
       "db": "src/db/db1.json",
       "role": "leader"
     },
     {
       "id": 2,
-      "host": "localhost",
+      "host": "192.168.0.99",
       "port": 50052,
       "db": "src/db/db2.json",
       "role": "follower"
     },
     {
       "id": 3,
-      "host": "localhost",
+      "host": "192.168.0.99",
       "port": 50053,
       "db": "src/db/db3.json",
       "role": "follower"

@@ -1,0 +1,22 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "host": "pos1",
+      "port": 50051,
+      "db": "src/db/db1.json"
+    },
+    {
+      "id": 2,
+      "host": "pos2",
+      "port": 50052,
+      "db": "src/db/db2.json"
+    },
+    {
+      "id": 3,
+      "host": "pos3",
+      "port": 50053,
+      "db": "src/db/db3.json"
+    }
+  ]
+}
