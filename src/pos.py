@@ -32,7 +32,6 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         peers: list,
         host: str,
         port: int,
-        leader_node: None,
     ):
         self.deposit = deposit
         self.node_id = node_id
@@ -40,7 +39,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         self.peers = peers  # List of peers to notify [(peer_id, host, port)]
         self.host = host  # Host where the node is running (IP or hostname)
         self.port = port  # Port where the node is running
-        self.leader_node = leader_node  # (host, port)
+        self.leader_node = None  # (host, port)
         self.transaction_counter = 0  # Counter for transactions
         self.transaction_lock = threading.Lock()  # Lock for counter
 
@@ -157,7 +156,9 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         transaction_id = self._generate_transaction_id()
 
         # Phase 1: Prepare
-        if not self.product_service._prepare_price_update(transaction_id, request.product_id, request.new_price):
+        if not self.product_service._prepare_price_update(
+            transaction_id, request.product_id, request.new_price
+        ):
             return UpdateProductPriceResponse(
                 success=False, message="Transaction aborted."
             )
