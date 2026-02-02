@@ -27,7 +27,6 @@ def connect():
         nodo_select = int(input("Select a node:"))
         for n in nodes:
             if nodo_select == n["id"]:
-                
                 db_path = n["db"]
                 channel = grpc.insecure_channel(f"{n['host']}:{n['port']}")
                 return pos_service_pb2_grpc.POSStub(channel)  # Retornamos el objeto
@@ -79,7 +78,7 @@ def manage_product_operations(products, stub):
 
                 request = GetProductPriceRequest(product_id=selected_product_id)
                 response = stub.GetProductPrice(request)
-                
+
                 print(f"\nPrice: ${response.price}")
 
             case "2":
@@ -93,7 +92,7 @@ def manage_product_operations(products, stub):
                     product_id=selected_product_id, quantity=quantity_product
                 )
                 response = stub.BuyProduct(request)
-                
+
                 if response.success:
                     print(f"Purchase made: {response.success}")
                 else:
@@ -110,14 +109,13 @@ def manage_product_operations(products, stub):
                     product_id=selected_product_id, new_price=new_price
                 )
                 response = stub.UpdateProductPrice(request)
-                
+
                 if response.success:
                     print("Price updated.")
                 else:
                     raise ValueError("Failed operation")
 
             case _:
-                
                 raise ValueError(f"Unknown operation {selected_operation}")
 
         time.sleep(1.5)

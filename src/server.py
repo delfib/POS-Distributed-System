@@ -21,7 +21,6 @@ def parse_args():
 
 
 def server_setup(node):
-
     # Start gRPC server
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     pos_service_pb2_grpc.add_POSServicer_to_server(node, server)
@@ -29,8 +28,8 @@ def server_setup(node):
 
     return server
 
-def node_setup(node_id):
 
+def node_setup(node_id):
     with open("src/config.json") as f:
         config = json.load(f)
 
@@ -40,7 +39,7 @@ def node_setup(node_id):
     node_cfg = next((n for n in nodes if n["id"] == node_id), None)
     if node_cfg is None:
         raise ValueError(f"Unknown node id {node_id}")
-    
+
     host = node_cfg["host"]
     port = node_cfg["port"]
     db_path = node_cfg["db"]
@@ -56,7 +55,6 @@ def node_setup(node_id):
     # - If there's no leader, heartbeat timeout will trigger an election
     # This allows nodes to rejoin the cluster without causing leader conflicts
     role = Role.FOLLOWER
-    leader_address = None  # Will be set when we receive heartbeat or win election
 
     # Create POS node
     node = POSServicer(
@@ -66,10 +64,10 @@ def node_setup(node_id):
         peers=peers,
         host=host,
         port=port,
-        leader_node=None,
     )
 
     return node
+
 
 def main():
     args = parse_args()
@@ -82,7 +80,9 @@ def main():
 
     node.start()
 
-    print(f"gRPC server started on port {node.port} (node {node_id} - {node.role.name})")
+    print(
+        f"gRPC server started on port {node.port} (node {node_id} - {node.role.name})"
+    )
 
     try:
         while True:
