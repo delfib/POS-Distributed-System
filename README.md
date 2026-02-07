@@ -1,8 +1,6 @@
-# tysd-bbc-distributed-pos
+# Setup
 
-## Setup
-
-Create an virtual environment, and install dependencies.
+## Create a virtual environment, and install dependencies.
 
 ```sh
 python3 -m venv .venv
@@ -10,7 +8,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Compile the GRPC (?)
+## Compile the gRPC .proto definition and generate Python stubs. Required for client-server RPC communication
 
 ```sh
 ./setup.sh
