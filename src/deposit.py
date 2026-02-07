@@ -22,8 +22,7 @@ class Deposit:
 
     def reload_database(self) -> bool:
         """
-        Reloads the database from disk.
-        Useful for development/testing when JSON files are modified manually.
+        Reload the database from disk.
         """
         with self._lock:
             try:
@@ -52,6 +51,7 @@ class Deposit:
             ]
 
     def get_product(self, product_id: int) -> Optional[Product]:
+        """Retrieve a single product by ID."""
         with self._lock:
             product = self._items.get(product_id)
             if not product:
@@ -65,6 +65,7 @@ class Deposit:
             )
 
     def add_stock(self, product_id: int, quantity: int) -> None:
+        """Increase the stock quantity of a product."""
         with self._lock:
             product = self._items.get(product_id)
             if product:
@@ -93,19 +94,21 @@ class Deposit:
             return requested_qty - qty_available
 
     def change_price(self, product_id: int, price: float) -> bool:
+        """Change the price of a product."""
         with self._lock:
             product = self._items.get(product_id)
             if not product:
                 return False
             product.price = price
-            # Save the updated data back to the file
             self._save_products()
             return True
 
     def prepare_price_change(
         self, transaction_id: str, product_id: int, new_price: float, version: int
     ) -> bool:
-        """Phase 1: Prepare to change price. Returns True if ready."""
+        """
+        Phase 1 of a two-phase commit for price updates.
+        Registers a pending price change without applying it."""
         with self._lock:
             product = self._items.get(product_id)
             if not product:
@@ -119,7 +122,9 @@ class Deposit:
             return True
 
     def commit_price_change(self, transaction_id: str) -> bool:
-        """Phase 2: Commit the price change."""
+        """Phase 2 of a two-phase commit. Apply the prepared price change.
+        The update is only committed if the incoming version is newer
+        than the current product version."""
         with self._lock:
             transaction = self._pending_transactions[transaction_id]
             if not transaction:
@@ -145,13 +150,14 @@ class Deposit:
             return True
 
     def abort_price_change(self, transaction_id: str) -> bool:
-        """Phase 2: Abort the price change."""
+        """Abort a pending price change transaction."""
         with self._lock:
             if transaction_id in self._pending_transactions:
                 del self._pending_transactions[transaction_id]
             return True
 
     def _save_products(self):
+        """Persist the current product state to the JSON database."""
         with open(self.database_path, "w") as f:
             data = {pid: product.__dict__ for pid, product in self._items.items()}
             json.dump(data, f, indent=4)

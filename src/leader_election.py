@@ -8,7 +8,13 @@ ELECTION_TIMEOUT = 5.0
 
 class LeaderElectionManager:
     """
-    Implements the Bully leader election algorithm.
+    Manages leader election using the Bully algorithm.
+
+    Each node has a unique numeric ID. When a node detects that the leader
+    has failed, it starts an election by contacting all peers with higher IDs.
+    - If no higher-ID node responds, the node declares itself leader.
+    - If a higher-ID node responds, this node waits for an Elected message.
+    - If the wait times out, the election is retried.
     """
     def __init__(self, node_id: int, peers: list, on_leader_elected: callable):
         self.node_id = node_id
@@ -17,13 +23,11 @@ class LeaderElectionManager:
 
         self._lock = threading.Lock()
         self._election_in_progress = False
-        self._received_elected = False  # Flag to track if we received an Elected message
+        self._received_elected = False  # Flag to track if Elected message was received
 
 
     def start_election(self):
-        """
-        Starts a Bully election.
-        """
+        """Starts a leader election."""
         with self._lock:
             if self._election_in_progress:
                 return
@@ -74,8 +78,10 @@ class LeaderElectionManager:
 
     def on_election(self, initiator_id: str) -> bool:
         """
-        Handles an incoming ELECTION message.
-        Returns True if this node responds.
+        Handles an incoming Election message.
+        If this node has a higher ID than the initiator, it:
+        - Responds positively to the election request
+        - Starts its own election in a separate thread
         """
         if self.node_id > initiator_id:
             print(f"[{self.node_id}] Election received from {initiator_id}, responding")
@@ -91,8 +97,9 @@ class LeaderElectionManager:
 
     def on_elected(self):
         """
-        Called when this node receives an Elected message.
-        Signals that a higher node has become leader.
+        Handles an incoming Elected message.
+        Signals that a higher-ID node has become leader and
+        terminates the current election process.
         """
         with self._lock:
             self._received_elected = True
@@ -110,7 +117,9 @@ class LeaderElectionManager:
 
     def _become_leader(self):
         """
-        Declares self as leader and broadcasts ELECTED.
+        Declares self as leader. 
+        Triggers the on_leader_elected callback, which is responsible
+        for broadcasting the Elected message to other nodes.
         """
         print(f"[{self.node_id}] Becoming leader")
         self.on_leader_elected(self.node_id)

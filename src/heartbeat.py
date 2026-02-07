@@ -15,10 +15,14 @@ HEARTBEAT_TIMEOUT_MAX = 10.0  # follower maximum wait time
 
 class HeartbeatManager:
     """
-    Handles the heartbeat logic for a node.
+    Manages heartbeat communication between nodes in the system.
 
-    - If the node is the LEADER: periodically sends heartbeats to followers
-    - If the node is a FOLLOWER: monitors leader heartbeats and detects leader failure
+    - If the node is the LEADER:
+        * Periodically sends heartbeat messages to all peers
+    - If the node is a FOLLOWER:
+        * Monitors incoming heartbeats from the leader
+        * Detects leader failure when heartbeats stop arriving
+        * Triggers a leader election when failure is detected
     """
     def __init__(
         self,
@@ -40,9 +44,11 @@ class HeartbeatManager:
         self._current_thread = None
 
     def _is_leader(self) -> bool:
+        """Returns True if this node is currently the leader."""
         return self.role == Role.LEADER
 
     def _random_timeout(self) -> float:
+        """Generates a randomized heartbeat timeout."""
         return random.uniform(HEARTBEAT_TIMEOUT_MIN, HEARTBEAT_TIMEOUT_MAX)
 
     def start(self):
@@ -61,7 +67,10 @@ class HeartbeatManager:
             self._current_thread.start()
 
     def stop(self):
-        """Stops the heartbeat threads and waits for them to finish."""
+        """
+        Stops the heartbeat thread safely.
+        Ensures threads terminate cleanly.
+        """
         with self._lock:
             self.running = False
             thread = self._current_thread
@@ -73,7 +82,7 @@ class HeartbeatManager:
             thread.join(timeout=2.0)
 
     def restart(self, new_role: Role):
-        """Safely restarts heartbeat with a new role."""
+        """Restarts heartbeat logic after a role change."""
         self.stop()
         with self._lock:
             self.role = new_role
@@ -91,7 +100,7 @@ class HeartbeatManager:
         self.heartbeat_timeout = self._random_timeout()
 
     def _sender_loop(self):
-        """Periodically sends heartbeats to all the peers."""
+        """Leader loop: periodically sends heartbeats to all the peers."""
         while self.running and self._is_leader():
             for peer_id, peer_host, peer_port in self.peers:
                 if not self.running or not self._is_leader():
@@ -112,7 +121,7 @@ class HeartbeatManager:
             time.sleep(HEARTBEAT_INTERVAL)
 
     def _watcher_loop(self):
-        """Detects if the leader stoped sending heartbeats."""
+        """Follower loop: detects if the leader stopped sending heartbeats."""
         while self.running:
             time_elapsed = time.time() - self.last_heartbeat_time
 

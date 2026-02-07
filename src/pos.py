@@ -35,12 +35,12 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
     ):
         self.deposit = deposit
         self.node_id = node_id
-        self.role = role  # Set the role as passed (LEADER or FOLLOWER)
-        self.peers = peers  # List of peers to notify [(peer_id, host, port)]
-        self.host = host  # Host where the node is running (IP or hostname)
+        self.role = role  
+        self.peers = peers  # List of peers [(peer_id, host, port)]
+        self.host = host  # Host where the node is running 
         self.port = port  # Port where the node is running
         self.leader_node = None  # (host, port)
-        self.transaction_counter = 0  # Counter for transactions
+        self.transaction_counter = 0  # Counter for transactions ids
         self.transaction_lock = threading.Lock()  # Lock for counter
 
         self.heartbeat_manager = HeartbeatManager(
@@ -62,9 +62,11 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         )
 
     def start(self):
+        """Start background services (heartbeats)."""
         self.heartbeat_manager.start()
 
     def stop(self):
+        """Stop background services."""
         self.heartbeat_manager.stop()
 
     def _generate_transaction_id(self):
@@ -77,15 +79,27 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         return self.role == Role.LEADER
 
     def SendHeartbeat(self, request, context):
+        """
+        RPC invoked by the leader to signal liveness.
+        Followers reset their heartbeat timeout upon receiving this.
+        """
         self.heartbeat_manager.receive_heartbeat(request.leader_id)
         return HeartbeatResponse(success=True)
 
     def _on_leader_failure(self):
+        """
+        Callback triggered when the leader is considered failed.
+        Stops heartbeat monitoring and starts a leader election.
+        """
         print(f"[{self.node_id}] Starting leader election")
         self.heartbeat_manager.stop()
         self.leader_election_manager.start_election()
 
     def Election(self, request, context):
+        """
+        RPC used during leader election.
+        Responds to election requests from peers.
+        """
         should_reply = self.leader_election_manager.on_election(request.initiatior)
         return ElectionResponse(
             success=should_reply,
@@ -93,6 +107,10 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         )
 
     def Elected(self, request, context):
+        """
+        RPC received when a new leader has been elected.
+        Updates local state and restarts heartbeat monitoring.
+        """
         print(
             f"[{self.node_id}] Received Elected from new leader {request.new_leader_id}"
         )
@@ -103,10 +121,14 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         return ElectedResponse(success=True)
 
     def _on_leader_elected(self, new_leader_id):
+        """
+        Callback triggered when this node becomes the leader.
+        Notifies all peers and starts sending heartbeats.
+        """
         print(f"[{self.node_id}] Becoming the new leader")
         self.role = Role.LEADER
 
-        # First broadcast Elected to all peers BEFORE starting heartbeats
+        # First broadcast Elected to all peers before starting heartbeats
         for _, host, port in self.peers:
             RPCCaller.execute_rpc_call(
                 host,
@@ -120,7 +142,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
                 timeout=3.0,
             )
 
-        # Now start sending heartbeats as leader
+        # Start sending heartbeats as leader
         self.heartbeat_manager.restart(self.role)
 
     def GetProductPrice(self, request, context):
@@ -133,7 +155,10 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         )
 
     def BuyProduct(self, request, context):
-        """RPC to buy a product, coordinating with peers if needed"""
+        """
+        RPC to buy a product. May involve coordination with peer nodes if local stock
+        is insufficient.
+        """
         success, quantity_sold, message = self.product_service.buy_product(
             request.product_id, request.quantity
         )
@@ -142,14 +167,18 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         )
 
     def RequestStock(self, request, context):
-        """RPC called by peers to request stock from this node"""
+        """
+        RPC invoked by peers to request stock from this node.
+        """
         provided = self.product_service.request_stock(
             request.product_id, request.quantity
         )
         return RequestStockResponse(quantity_provided=provided)
 
     def UpdateProductPrice(self, request, context):
-        """RPC to update product price - forwards to leader if not leader"""
+        """
+        RPC to update a product price. If this node is not the leader, the request is forwarded.
+        """
         if not self._is_leader():
             return self._forward_to_leader(request)
 
@@ -172,7 +201,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         )
 
     def _forward_to_leader(self, request):
-        """Forward price update request to the leader"""
+        """Forward a price update request to the current leader."""
         if self.leader_node is None:
             return UpdateProductPriceResponse(
                 success=False, message="Leader unknown, cannot process request"
@@ -207,11 +236,13 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         return PrepareUpdatePriceResponse(ready=ready, message=message)
 
     def CommitUpdatePrice(self, request, context):
+        """Phase 2: Commit price update"""
         return CommitUpdatePriceResponse(
             success=self.deposit.commit_price_change(request.transaction_id)
         )
 
     def AbortUpdatePrice(self, request, context):
+        """Abort a pending price update transaction."""
         return AbortUpdatePriceResponse(
             success=self.deposit.abort_price_change(request.transaction_id)
         )
@@ -219,7 +250,6 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
     def ReloadDatabase(self, request, context):
         """
         RPC to reload the database from disk.
-        Useful for development/testing when JSON files are modified manually.
         """
         success = self.deposit.reload_database()
         if success:

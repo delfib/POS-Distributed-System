@@ -7,7 +7,7 @@ from rpc_caller import RPCCaller
 
 class ProductService:
     """
-    Manages product-related logic: purchases and stock updates.
+    Manages product-related logic: purchases, price updates.
     """
 
     def __init__(
@@ -23,6 +23,11 @@ class ProductService:
         return self.deposit.get_product(product_id)
 
     def buy_product(self, product_id: int, requested_qty: int) -> Tuple[bool, int, str]:
+        """
+        Attempt to buy a product, possibly involving other nodes.
+        Try to from local stock. If insufficient, request stock from peer nodes.
+        Return the total quantity sold.
+        """
         product = self.deposit.get_product(product_id)
         if product is None:
             return False, 0, "Product not found"
@@ -40,10 +45,19 @@ class ProductService:
             return False, 0, "Product not available in any node"
 
     def request_stock(self, product_id: int, requested_qty: int) -> int:
+        """
+        Handle incoming stock requests from peer nodes. Attempt to sell as much stock as possible locally
+        and return how many units were actually provided.
+        """
         remaining = self.deposit.sell_product(product_id, requested_qty)
         return requested_qty - remaining
 
     def _request_stock_from_peers(self, product_id: int, remaining: int) -> int:
+        """
+        Request additional stock from peer nodes via RPC.
+        Iterate over peers until either the requested quantity is fulfilled
+        or all peers have been contacted.
+        """
         for peer_id, peer_host, peer_port in self.peers:
             if remaining <= 0:
                 break
@@ -64,7 +78,10 @@ class ProductService:
     def _prepare_price_update(
         self, transaction_id: str, product_id: int, new_price: float
     ) -> bool:
-        """Prepares all nodes to commit. Returns True if all nodes are ready, False otherwise."""
+        """
+        Phase 1 of the two-phase commit (2PC) protocol for price updates.
+        Prepares all nodes to commit. Returns True if all nodes are ready, False otherwise.
+        """
         product = self.deposit.get_product(product_id)
         new_version = product.version + 1
         if not self.deposit.prepare_price_change(
@@ -89,7 +106,6 @@ class ProductService:
 
             if not success or not response or not response.ready:
                 all_ready = False
-                # break
 
         if all_ready:
             return True
@@ -97,10 +113,13 @@ class ProductService:
             self._abort_price_update(transaction_id)
             return False
         
-    
 
     def _commit_price_update(self, transaction_id: str):
-        """Commit the transaction on all nodes"""
+        """
+        Phase 2 of the two-phase commit: commit the price update.
+        Apply the prepared price update locally and instruct
+        all peers to commit the transaction.
+        """
         self.deposit.commit_price_change(transaction_id)
 
         for peer_id, peer_host, peer_port in self.peers:
@@ -113,7 +132,11 @@ class ProductService:
             )
 
     def _abort_price_update(self, transaction_id: str):
-        """Abort the transaction on all nodes"""
+        """
+        Abort a pending price update transaction.
+        Clean up prepared state locally and instruct
+        all peers to abort the transaction.
+        """
         self.deposit.abort_price_change(transaction_id)
 
         for peer_id, peer_host, peer_port in self.peers:

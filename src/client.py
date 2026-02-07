@@ -16,6 +16,14 @@ db_path = ""
 
 
 def connect():
+    """
+    Connects the client to a selected POS node.
+
+    - Loads node configuration from config.json
+    - Prompts the user to select a node
+    - Creates a gRPC channel to that node
+    - Returns a POSStub for RPC calls
+    """
     global db_path
 
     config_file = os.getenv("CONFIG_FILE", "src/config.json")
@@ -31,17 +39,17 @@ def connect():
             if nodo_select == n["id"]:
                 db_path = n["db"]
                 channel = grpc.insecure_channel(f"{n['host']}:{n['port']}")
-                return pos_service_pb2_grpc.POSStub(channel)  # Retornamos el objeto
+                return pos_service_pb2_grpc.POSStub(channel) 
     return None
 
 
 def products_list():
+    """Loads and returns the list of products from the local JSON database file."""
     products = []
 
     with open(db_path) as f:
         data = json.load(f)
 
-        # print(type(data))
         for item in data:
             product = (data[item]["id"], data[item]["name"])
             products.append(product)
@@ -52,6 +60,13 @@ def products_list():
 
 
 def manage_product_operations(products, stub):
+    """
+    Interactive client menu for product operations.
+    Allows the user to:
+    - Query product price
+    - Buy products
+    - Update product price 
+    """
     products_ids = []
 
     for id in products:
@@ -126,10 +141,7 @@ def manage_product_operations(products, stub):
 
 
 def reload_all_databases():
-    """Reload database from disk on all nodes.
-
-    Useful for development/testing when JSON files are modified manually.
-    """
+    """Reload database from disk on all nodes."""
     print("\n" + "=" * 60)
     print("Reloading Databases on All Nodes")
     print("=" * 60)
