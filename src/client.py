@@ -15,6 +15,8 @@ from proto.pos_service_pb2 import (
 db_path = ""
 
 
+from grpc import channel_ready_future
+
 def connect():
     """
     Connects the client to a selected POS node.
@@ -49,11 +51,26 @@ def connect():
             if nodo_select == n["id"]:
                 db_path = n["db"]
                 channel = grpc.insecure_channel(f"{n['host']}:{n['port']}")
-                print(f"\nSuccessfully connected to node {n['id']}.")
-                return pos_service_pb2_grpc.POSStub(channel)
+
+                print("Connecting to node...")
+
+                try:
+                    # Force connectivity check (wait up to 3 seconds)
+                    channel_ready_future(channel).result(timeout=3)
+
+                    print(f"Successfully connected to node {n['id']}.")
+                    return pos_service_pb2_grpc.POSStub(channel)
+
+                except grpc.FutureTimeoutError:
+                    print(
+                        f"Failed to connect to node {n['id']} "
+                    )
+                    print("The server may be down or unreachable.")
+                    return None
 
     print("Selected node not found. Please select a valid node id.")
     return None
+
 
 
 def products_list():
