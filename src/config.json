@@ -5,7 +5,7 @@
       "host": "localhost",
       "port": 50051,
       "db": "src/db/db1.json",
-      "role": "leader"
+      "role": "follower"
     },
     {
       "id": 2,

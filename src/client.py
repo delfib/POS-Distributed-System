@@ -26,20 +26,33 @@ def connect():
     """
     global db_path
 
+    print("\n" + "=" * 60)
+    print("POS CLIENT — NODE CONNECTION")
+    print("=" * 60)
+
     config_file = os.getenv("CONFIG_FILE", "src/config.json")
     with open(config_file) as f:
         config = json.load(f)
         nodes = config["nodes"]
 
+        print("\nAvailable POS nodes:")
         for n in nodes:
             print("node " + str(n["id"]))
 
-        nodo_select = int(input("Select a node:"))
+        try:
+            nodo_select = int(input("\nSelect a node to connect to: "))
+        except ValueError:
+            print("Invalid input. Please enter a numeric node ID.")
+            return None
+
         for n in nodes:
             if nodo_select == n["id"]:
                 db_path = n["db"]
                 channel = grpc.insecure_channel(f"{n['host']}:{n['port']}")
-                return pos_service_pb2_grpc.POSStub(channel) 
+                print(f"\nSuccessfully connected to node {n['id']}.")
+                return pos_service_pb2_grpc.POSStub(channel)
+
+    print("Selected node not found. Please select a valid node id.")
     return None
 
 
@@ -74,76 +87,83 @@ def manage_product_operations(products, stub):
 
     while True:
         print("\n" + "=" * 60)
+        print("PRODUCT CATALOG")
+        print("=" * 60)
 
-        print("PRODUCTS\n")
         for item in products:
             print(item[0], "- " + item[1])
 
-        print("\n" + "OPERATIONS")
-        print("1 - SHOW PRODUCT PRICE")
-        print("2 - BUY PRODUCT")
-        print("3 - UPDATE PRODUCT\n")
+        print("\nAVAILABLE OPERATIONS")
+        print("  1 - Show product price")
+        print("  2 - Buy product")
+        print("  3 - Update product price")
+        print("  0 - Exit")
 
-        selected_operation = input("$ ")
+        selected_operation = input("\nSelect an operation: ").strip()
 
         match selected_operation:
             case "1":
-                selected_product_id = int(input("Product ID: "))
+                selected_product_id = int(input("Enter product ID: "))
 
                 if selected_product_id not in products_ids:
-                    raise ValueError(f"Unknown product id {selected_product_id}")
+                    print("Unknown product ID. Please retry.")
+                    continue
 
                 request = GetProductPriceRequest(product_id=selected_product_id)
                 response = stub.GetProductPrice(request)
 
-                print(f"\nPrice: ${response.price}")
+                print(f"\nProduct price: ${response.price}")
 
             case "2":
-                selected_product_id = int(input("Product ID to buy: "))
+                selected_product_id = int(input("Enter product ID to buy: "))
 
                 if selected_product_id not in products_ids:
-                    raise ValueError(f"Unknown product id {selected_product_id}")
+                    print("Unknown product ID. Please retry.")
+                    continue
 
-                quantity_product = int(input("Quantity: "))
+                quantity_product = int(input("Enter quantity: "))
                 request = BuyProductRequest(
                     product_id=selected_product_id, quantity=quantity_product
                 )
                 response = stub.BuyProduct(request)
 
                 if response.success:
-                    print(f"Purchase made: {response.success}")
+                    print(f"Purchase successful. Units sold: {response.quantity_sold}")
                 else:
-                    raise ValueError("Failed operation")
+                    print(f"Purchase failed: {response.message}")
 
             case "3":
-                selected_product_id = int(input("Product ID: "))
+                selected_product_id = int(input("Enter product ID: "))
 
                 if selected_product_id not in products_ids:
-                    raise ValueError(f"Unknown product id {selected_product_id}")
+                    print("Unknown product ID. Please retry.")
+                    continue
 
-                new_price = float(input("New Price: "))
+                new_price = float(input("Enter new price: "))
                 request = UpdateProductPriceRequest(
                     product_id=selected_product_id, new_price=new_price
                 )
                 response = stub.UpdateProductPrice(request)
 
                 if response.success:
-                    print("Price updated.")
+                    print("Product price updated successfully.")
                 else:
-                    raise ValueError("Failed operation")
+                    print(f"Price update failed: {response.message}")
+
+            case "0":
+                print("\nExiting POS client. Goodbye!")
+                return
 
             case _:
-                raise ValueError(f"Unknown operation {selected_operation}")
+                print("Invalid option. Please select a valid operation.")
 
-        time.sleep(1.5)
-
-        print("=" * 60)
+        time.sleep(1.2)
 
 
 def reload_all_databases():
     """Reload database from disk on all nodes."""
     print("\n" + "=" * 60)
-    print("Reloading Databases on All Nodes")
+    print("RELOADING DATABASES ON ALL NODES")
     print("=" * 60)
 
     nodes = [
@@ -159,11 +179,11 @@ def reload_all_databases():
 
             request = ReloadDatabaseRequest()
             response = stub.ReloadDatabase(request)
-            print(f"   {node_name}: {response.message}")
+            print(f"{node_name}: {response.message}")
 
             channel.close()
         except grpc.RpcError as e:
-            print(f"   {node_name}: Failed to reload - {e.code().name}")
+            print(f"{node_name}: Failed to reload ({e.code().name})")
 
 
 def run():
