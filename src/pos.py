@@ -35,9 +35,9 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
     ):
         self.deposit = deposit
         self.node_id = node_id
-        self.role = role  
+        self.role = role
         self.peers = peers  # List of peers [(peer_id, host, port)]
-        self.host = host  # Host where the node is running 
+        self.host = host  # Host where the node is running
         self.port = port  # Port where the node is running
         self.leader_node = None  # (host, port)
         self.transaction_counter = 0  # Counter for transactions ids
@@ -73,6 +73,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         """Generate a sequential transaction ID"""
         with self.transaction_lock:
             self.transaction_counter += 1
+            return f"{self.node_id}-{self.transaction_counter}"
 
     def _is_leader(self) -> bool:
         """Check if this node is the leader"""
@@ -111,9 +112,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         RPC received when a new leader has been elected.
         Updates local state and restarts heartbeat monitoring.
         """
-        print(
-            f"[{self.node_id}] Received Elected from new leader {request.new_leader_id}"
-        )
+        print(f"[{self.node_id}] Received Elected from new leader {request.new_leader_id}")
         self.role = Role.FOLLOWER
         self.leader_node = (request.new_leader_host, request.new_leader_port)
         self.leader_election_manager.on_elected()  # Signal election manager
@@ -162,17 +161,13 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         success, quantity_sold, message = self.product_service.buy_product(
             request.product_id, request.quantity
         )
-        return BuyProductResponse(
-            success=success, quantity_sold=quantity_sold, message=message
-        )
+        return BuyProductResponse(success=success, quantity_sold=quantity_sold, message=message)
 
     def RequestStock(self, request, context):
         """
         RPC invoked by peers to request stock from this node.
         """
-        provided = self.product_service.request_stock(
-            request.product_id, request.quantity
-        )
+        provided = self.product_service.request_stock(request.product_id, request.quantity)
         return RequestStockResponse(quantity_provided=provided)
 
     def UpdateProductPrice(self, request, context):
@@ -188,9 +183,7 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         if not self.product_service._prepare_price_update(
             transaction_id, request.product_id, request.new_price
         ):
-            return UpdateProductPriceResponse(
-                success=False, message="Transaction aborted."
-            )
+            return UpdateProductPriceResponse(success=False, message="Transaction aborted.")
 
         # Phase 2: Commit
         self.product_service._commit_price_update(transaction_id)
@@ -216,12 +209,9 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
             timeout=10.0,
         )
 
-        if success:
-            return response
-        else:
-            return UpdateProductPriceResponse(
-                success=False, message="Failed to contact leader."
-            )
+        if not success:
+            return UpdateProductPriceResponse(success=False, message="Failed to contact leader.")
+        return response
 
     def PrepareUpdatePrice(self, request, context):
         """Phase 1: Prepare to update price"""
@@ -252,12 +242,10 @@ class POSServicer(pos_service_pb2_grpc.POSServicer):
         RPC to reload the database from disk.
         """
         success = self.deposit.reload_database()
-        if success:
-            print(f"[{self.node_id}] Database reloaded from disk")
-            return ReloadDatabaseResponse(
-                success=True, message="Database reloaded successfully from disk"
-            )
-        else:
-            return ReloadDatabaseResponse(
-                success=False, message="Failed to reload database"
-            )
+
+        if not success:
+            return ReloadDatabaseResponse(success=False, message="Failed to reload database")
+
+        msg = "Database reloaded successfully from disk"
+        print(f"[{self.node_id}] {msg}")
+        return ReloadDatabaseResponse(success=True, message=msg)
